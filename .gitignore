@@ -1,0 +1,71 @@
+# ==========================================================================
+#  .gitignore
+#  Goal: track the lightweight project (code, docs, CSV) on GitHub.
+#  NEVER upload the point-cloud data — it is large and irreplaceable (RULE 0).
+#  Raw + processed clouds stay LOCAL ONLY.
+# ==========================================================================
+
+# --- Point-cloud data: never upload, any location ---------------------------
+# Matches by extension so a stray cloud saved anywhere is still excluded.
+*.ply
+*.las
+*.laz
+*.e57
+*.pcd
+*.pts
+*.xyz
+*.bin
+
+# --- Data working folders: keep the folder, ignore its contents -------------
+# (The clouds live here; the trailing '!.gitkeep' keeps the empty dir in git
+#  so the project structure is preserved online.)
+raw_ply/*
+!raw_ply/.gitkeep
+cleaned/*
+!cleaned/.gitkeep
+stitched/*
+!stitched/.gitkeep
+slices/*
+!slices/.gitkeep
+
+# results/ : keep plots + result CSVs tracked (they are small and worth
+# versioning), but never a point cloud (already excluded by extension above).
+
+# Private spreadsheet: keep the working .xlsx out of GitHub.
+field_measurements_working.xlsx
+
+# Private mapping workbook: keep it local and out of GitHub.
+TreeTag_to_CodeTreeTag.xlsx
+
+# Local handoff / private instructions file.
+CLAUDE.md
+
+# --- Office / OneDrive temp + lock files ------------------------------------
+~$*
+.~lock.*
+*.tmp
+# Note: the stray random-name Office temp (e.g. field_data/sedkMyy4t) is best
+# just deleted once Excel is closed rather than pattern-matched here.
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+# Virtual environment: large + machine-specific. Recreate from requirements.txt;
+# never commit it.
+TreeDiameter_Environment/
+
+# --- OS junk ----------------------------------------------------------------
+Thumbs.db
+Desktop.ini
+desktop.ini
+.DS_Store
+
+# --- Editor / IDE -----------------------------------------------------------
+.vscode/
+.idea/
+*.swp

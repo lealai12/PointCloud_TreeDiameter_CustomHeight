@@ -1,0 +1,9 @@
+# DAB point-cloud analysis — Python dependencies
+# Install:  pip install -r requirements.txt
+numpy>=1.24
+scipy>=1.10
+pandas>=2.0
+matplotlib>=3.7
+plyfile>=1.0        # read/write PLY (ForestScanner export) -- fit_dab.py, dendro_tape.py, median_polygon*.py
+open3d>=0.18        # optional: loopclose.py only (scripted denoising / downsampling / ICP)
+openpyxl>=3.1       # --from-sheet batch mode: read/write the manifest spreadsheet (sheet_batch.py)
