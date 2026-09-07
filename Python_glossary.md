@@ -42,15 +42,15 @@ the bottom is the actual "go" button.
 ### Virtual environments (`venv`) & `pip` — the project's isolated toolbox
 A **virtual environment** is a private, per-project copy of Python + its packages, so
 this project's libraries can't clash with anything else on your machine. Ours is the
-folder `DAB_Project_Environment/` (it is git-ignored — you rebuild it, never commit it).
+folder `TreeDiameter_Environment/` (it is git-ignored — you rebuild it, never commit it).
 **R note:** this is exactly R's `renv` idea.
 ```bash
-python -m venv DAB_Project_Environment        # create it (once)
+python -m venv TreeDiameter_Environment        # create it (once)
 # --- use it: either "activate" the environment for your whole terminal session... ---
-DAB_Project_Environment\Scripts\Activate.ps1  # Windows PowerShell
-source DAB_Project_Environment/bin/activate   # Mac/Linux
+TreeDiameter_Environment\Scripts\Activate.ps1  # Windows PowerShell
+source TreeDiameter_Environment/bin/activate   # Mac/Linux
 # ...or just call the env's python directly, without activating:
-DAB_Project_Environment/Scripts/python.exe scripts/loopclose.py ...   # Windows
+TreeDiameter_Environment/Scripts/python.exe scripts/loopclose.py ...   # Windows
 ```
 **`pip`** is Python's package installer (like `install.packages()` in R). Inside the env:
 ```bash

@@ -1,8 +1,9 @@
 # =============================================================================
 # plot_style.R -- shared method vocabulary/colour/shape lookup for
-# results/plots/*.png, sourced by validate_field_accuracy.R and
-# compare_hull_methods.R so a colour and a name mean the same thing in every
-# figure. Revised 2026-08-02 per the plot-cleanup spec ("one method
+# results/plots/*.png, sourced by validate_field_accuracy.R,
+# compare_hull_methods.R and plot_error_by_size.R so a colour and a name mean
+# the same thing in every figure. (build_median_hull_2deg_demo.R does not
+# source this -- it colours by SITE, not by method, and defines its own scale.) Revised 2026-08-02 per the plot-cleanup spec ("one method
 # vocabulary everywhere" / "one colour per method, fixed across figures").
 #
 # Not subject to the "two independent implementations, deliberately kept

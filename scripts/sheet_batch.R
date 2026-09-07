@@ -1,22 +1,22 @@
 # =============================================================================
 # sheet_batch.R -- shared spreadsheet-driven batch-run helper for the
-# per-.ply measurement scripts (dab_itsme.R, dendro_tape.R, median_polygon.R,
-# median_polygon_2deg.R).
+# per-.ply measurement scripts (fit_dab.R, dab_itsme.R, dendro_tape.R,
+# median_polygon_10mm.R, median_polygon_2deg.R).
 #
 # WHY THIS EXISTS
 # ----------------
 # Each measurement script normally runs once per tree, with the tree's
 # height (if any) typed by hand into --height/--height-z and its .ply path
 # typed by hand as the positional argument -- fine for one-off work, but it
-# doesn't batch (none of the four R measurement scripts have ever had a
-# --batch flag at all, unlike their Python counterparts), and it ties every
+# doesn't batch (of the five R measurement scripts only fit_dab.R has a
+# --batch flag, where every Python counterpart has one), and it ties every
 # run to one specific file layout and column-naming scheme. This module lets
 # a script instead read tree ID / height / output column straight from a
 # spreadsheet (the CONFIG block at the top of each script) and loop over
 # every row in one run -- someone with different column names and folders
 # only has to edit that CONFIG block, not the measurement code.
 #
-# Shared ACROSS the four R measurement scripts -- this is plumbing, not
+# Shared ACROSS the five R measurement scripts -- this is plumbing, not
 # measurement logic, so it does NOT fall under the "two independent
 # implementations, deliberately kept separate" convention these scripts
 # otherwise follow. That convention is about Python vs R each independently
@@ -24,8 +24,9 @@
 # plain DRY, same reasoning as plot_style.R. NOT shared with the Python
 # side: scripts/sheet_batch.py is an independently written Python
 # equivalent for the Python measurement scripts' own batch/read step --
-# though see WRITE-BACK below, the actual write always goes through the
-# Python path regardless of which language is doing the measuring.
+# though see WRITE-BACK below, the actual write goes through the Python
+# path whenever a Python interpreter is available -- with no Python on
+# PATH it falls back to writing from R via scripts/xlsx_repair.R.
 #
 # WRITE-BACK: WHY THIS PREFERS SHELLING OUT TO PYTHON OVER WRITING DIRECTLY
 # ------------------------------------------------------------------------

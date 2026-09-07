@@ -5,8 +5,8 @@ fixed 2-degree angular bins.
 
 FIXED-DEGREE vs. FIXED-ARC-LENGTH: TWO STANDALONE VARIANTS
 ------------------------------------------------------------
-This is the original fixed-angular-bin variant of median_polygon.py, kept as
-its own script rather than folded behind a flag: scripts/median_polygon.py
+This is the original fixed-angular-bin variant of median_polygon_10mm.py, kept as
+its own script rather than folded behind a flag: scripts/median_polygon_10mm.py
 (no "_2deg" suffix) is a SEPARATE, independent script that bins by a fixed
 ARC LENGTH (default 10mm) instead of a fixed angle, because a fixed-degree
 bin covers wildly different amounts of bark depending on trunk size (2 deg is
@@ -15,14 +15,14 @@ available on purpose: the goal is to make the best method available, and a
 future user should be able to run either one and compare against their own
 data, not have an earlier choice silently overwritten.
 
-The plain `median_polygon.py` name is deliberately kept on the arc-length
-variant rather than this one, even on datasets where this fixed-degree
-variant happens to score slightly better, because this script's bin width
-scales silently with object size (a constant angular bin covers far more
-arc on a large object than a small one) where the arc-length variant stays
-predictable across a wide size range. Use this script explicitly (by its
-full, suffixed name) when you specifically want fixed-degree behavior;
-reach for the plain name otherwise.
+This script's bin width scales with object size (a constant angular bin
+covers far more arc on a large object than a small one), where
+median_polygon_10mm.py's fixed arc-length bin stays predictable across a
+wide size range. That is a real difference in behaviour, not a ranking:
+neither variant is the default and neither supersedes the other. On this
+project's own validated subset the two scored virtually identically, with
+this fixed-degree variant marginally ahead -- a result specific to that
+dataset. Run both against your own data and choose on your own numbers.
 
 WHAT THIS MEASURES (and why)
 ----------------------------
@@ -275,7 +275,7 @@ def write_polygon_bundle(poly_dir: str, tree_id: str, poly_xy: np.ndarray,
     """Write <tree_id>_median_polygon_2deg_py.ply (cyan, the median-binned surface
     polygon) and <tree_id>_median_hull_2deg_py.ply (magenta, its convex hull) into
     poly_dir, for loading in CloudCompare beside the original disc/slice. `_2deg`
-    keeps these from colliding with median_polygon.py's `_10mm`-suffixed output
+    keeps these from colliding with median_polygon_10mm.py's `_10mm`-suffixed output
     when both variants are pointed at the same folder."""
     os.makedirs(poly_dir, exist_ok=True)
     poly_closed = np.vstack([poly_xy, poly_xy[0]])
@@ -353,7 +353,7 @@ def main():
     ap = argparse.ArgumentParser(
         description="Convex hull of a median-radius surface polygon on a trunk slice, "
                     "fixed 2-degree angular bins (denoised alternative to dendro_tape.py's "
-                    "raw-point hull; see median_polygon.py for the fixed-arc-length variant).")
+                    "raw-point hull; see median_polygon_10mm.py for the fixed-arc-length variant).")
     ap.add_argument("path", nargs="?", default=None,
                     help="A .ply slice/section, or a folder (with --batch). Not used with --from-sheet.")
     ap.add_argument("--batch", action="store_true", help="Treat path as a folder of *.ply.")

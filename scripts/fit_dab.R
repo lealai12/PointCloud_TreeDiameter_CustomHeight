@@ -9,7 +9,7 @@
 #
 # This is fit_dab.py's TRUE twin, in the same "two independent
 # implementations, deliberately kept separate" sense as dendro_tape.py/.R and
-# median_polygon.py/.R -- same measurement method, written independently in
+# median_polygon_10mm.py/.R -- same measurement method, written independently in
 # each language, so the two can be compared as a correctness cross-check.
 # dab_itsme.R is a SEPARATE thing: it was always meant to be a different
 # METHOD (ITSMe's own circle + concave-hull fit), not a port of fit_dab.py's

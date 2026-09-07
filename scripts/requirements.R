@@ -5,7 +5,7 @@
 #   readxl              validate_field_accuracy.R, compare_hull_methods.R, sheet_batch.R (read the manifest sheet)
 #   dplyr, tidyr         validate_field_accuracy.R, compare_hull_methods.R (analysis pipelines)
 #   ggplot2, scales      validate_field_accuracy.R, compare_hull_methods.R, plot_style.R (all results/plots/*.png)
-#   Rvcg                 dendro_tape.R, median_polygon.R, median_polygon_2deg.R (PLY reader)
+#   Rvcg                 dendro_tape.R, median_polygon_10mm.R, median_polygon_2deg.R (PLY reader)
 #   ITSMe (+ lidR, Rcpp, RcppEigen, RcppArmadillo)   dab_itsme.R only
 #   openxlsx, xml2, zip   xlsx_repair.R -- only used for --from-sheet's spreadsheet
 #                         WRITE step, and only as a fallback when no Python

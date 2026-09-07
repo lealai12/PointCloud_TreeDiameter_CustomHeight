@@ -5,22 +5,22 @@
 #
 # FIXED-DEGREE vs. FIXED-ARC-LENGTH: TWO STANDALONE VARIANTS
 # ------------------------------------------------------------
-# This is the original fixed-angular-bin variant of median_polygon.R, kept as
-# its own script rather than folded behind a flag: scripts/median_polygon.R
+# This is the original fixed-angular-bin variant of median_polygon_10mm.R, kept as
+# its own script rather than folded behind a flag: scripts/median_polygon_10mm.R
 # (no "_2deg" suffix) is a SEPARATE, independent script that bins by a fixed
 # ARC LENGTH (default 10mm) instead of a fixed angle -- see that script's
 # header for the full reasoning. Both are kept available on purpose: the
 # goal is to make the best method available, not to silently overwrite an
 # earlier choice.
 #
-# The plain `median_polygon.R` name is deliberately kept on the arc-length
-# variant rather than this one, even on datasets where this fixed-degree
-# variant happens to score slightly better, because this script's bin width
-# scales silently with object size (a constant angular bin covers far more
-# arc on a large object than a small one) where the arc-length variant stays
-# predictable across a wide size range. Use this script explicitly (by its
-# full, suffixed name) when you specifically want fixed-degree behavior;
-# reach for the plain name otherwise.
+# This script's bin width scales with object size (a constant angular bin
+# covers far more arc on a large object than a small one), where
+# median_polygon_10mm.R's fixed arc-length bin stays predictable across a
+# wide size range. That is a real difference in behaviour, not a ranking:
+# neither variant is the default and neither supersedes the other. On this
+# project's own validated subset the two scored virtually identically, with
+# this fixed-degree variant marginally ahead -- a result specific to that
+# dataset. Run both against your own data and choose on your own numbers.
 #
 # WHAT THIS MEASURES (and why)
 # ----------------------------
@@ -141,7 +141,7 @@ poly_dir   <- get_flag("--poly-dir", NULL)   # if set, write polygon/hull PLYs h
 # median-binned surface polygon) and <tree_id>_median_hull_2deg_r.ply
 # (magenta, its convex hull) for loading in CloudCompare beside the original
 # disc/slice. `_2deg_r` suffix keeps these from colliding with
-# median_polygon.py/.R's `_10mm`-suffixed output and with the Python `_py`
+# median_polygon_10mm.py/.R's `_10mm`-suffixed output and with the Python `_py`
 # variant when both are pointed at the same folder.
 write_ply_xyzrgb <- function(path, xyz3, rgb) {
   # xyz3: N x 3 matrix; rgb: length-3 vector (0-255), applied to every row.

@@ -238,5 +238,5 @@ if (length(logs)) {
       "circle-fit RMS against the manually-cleaned baseline. If registration can't tighten\n",
       "it further, this scan is a re-capture candidate -- or re-run with loopclose.py if\n",
       "Python is available, since its RANSAC/FPFH coarse step is more robust than this\n",
-      "script's centroid-only alignment.\n", sep = "")
+      "script's coarse-step-free direct ICP.\n", sep = "")
 }

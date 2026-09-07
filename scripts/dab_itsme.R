@@ -9,11 +9,14 @@
 # a second look, before you ever get to ground truth.
 #
 # Workflow this fits into:
-#   1. Isolate a loop-closed TRUNK SECTION (a vertical chunk of the bole,
+#   1. Isolate a cleaned TRUNK SECTION (a vertical chunk of the bole,
 #      tall enough to pick a height on -- NOT a pre-cut thin ring).
-#   2. Pick a point on the section; its Z is the measurement height.
-#   3. Run BOTH tools on that section at that Z with the same slice thickness:
-#        Rscript scripts/dab_itsme.R <section.ply> --tree-id 1234 \
+#   2. Pick a point on the section. On ForestScanner (Y-up) clouds that is its
+#      Y coordinate -- pass it to --height-z together with --up-axis y, which
+#      swaps the axes internally. Without --up-axis y this script defaults to
+#      z and will slice the wrong axis (see the --up-axis default below).
+#   3. Run BOTH tools on that section at that height, same slice thickness:
+#        Rscript scripts/dab_itsme.R <section.ply> --tree-id 1234 --up-axis y \
 #                --height-z 2.31 --thickness 0.06 --out results/dab_itsme_results.csv
 #        python  scripts/fit_dab.py ... (matching height/thickness)
 #
@@ -88,7 +91,8 @@ thickness <- as.numeric(get_flag("--thickness", 0.06))
 concavity <- as.numeric(get_flag("--concavity", 4))
 how       <- get_flag("--how", "median")                    # ITSMe radius summary
 out       <- get_flag("--out", NULL)
-up_axis   <- get_flag("--up-axis", "z")                     # ForestScanner clouds are Y-up
+up_axis   <- get_flag("--up-axis", "z")   # default z (ITSMe convention); ForestScanner
+                                          # clouds are Y-up -> pass --up-axis y explicitly
 
 if (!from_sheet && is.na(height_z)) {
   stop("--height-z <Z> is required (the picked point's Z, in metres) unless --from-sheet is given.")

@@ -13,9 +13,11 @@ then refuses to re-read (confirmed: empty bookViews window attributes, and
 a dangling worksheet->drawing relationship pointing at a file that was never
 written). openpyxl's own write path showed no such issue in either
 direction during testing. Rather than chase individual openxlsx quirks
-against a real, irreplaceable spreadsheet, every actual write to the sheet
-routes through this one proven-safe path -- R only ever reads the sheet
-(via readxl, read-only, no risk) and calls this script for the write.
+against a real, irreplaceable spreadsheet, this is the PREFERRED write path:
+whenever a Python interpreter is on PATH, R reads the sheet with readxl and
+calls this script to do the writing. With no Python available, R falls back
+to writing directly via scripts/xlsx_repair.R, which patches the same
+openxlsx corruption after saving -- the less-exercised of the two paths.
 
 USAGE
 -----

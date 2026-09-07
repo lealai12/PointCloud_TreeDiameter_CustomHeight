@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # =============================================================================
-# median_polygon.R  --  convex hull of a MEDIAN-RADIUS surface polygon (R),
+# median_polygon_10mm.R  --  convex hull of a MEDIAN-RADIUS surface polygon (R),
 # fixed arc-length angular bins (default 10mm).
 #
 # FIXED-ARC-LENGTH vs. FIXED-DEGREE: TWO STANDALONE VARIANTS
@@ -13,14 +13,14 @@
 # actually performs better can depend on the size range of what you're
 # measuring, so both stay available to test against your own data.
 #
-# THIS SCRIPT (the unsuffixed, arc-length one) deliberately holds the plain
-# name: its bin width is size-normalized, so its smoothing behavior stays
-# predictable across a wide range of object sizes, where
-# median_polygon_2deg.R's fixed-degree bin scales silently with size (a
-# constant angular bin covers far more arc length on a large object than a
-# small one -- see the next section). A future user reaching for the plain
-# `median_polygon.R` name on something much bigger than anything they've
-# tested it on before gets the variant that degrades predictably.
+# THIS SCRIPT bins by a fixed ARC LENGTH, so its bin width is
+# size-normalized and its smoothing behavior stays predictable across a wide
+# range of object sizes. median_polygon_2deg.R's fixed-degree bin instead
+# scales with size (a constant angular bin covers far more arc length on a
+# large object than a small one -- see the next section). Neither is the
+# default and neither supersedes the other: which one suits a given stand
+# depends on its size distribution, so run both against your own data and
+# choose on your own numbers.
 #
 # WHAT THIS MEASURES (and why)
 # ----------------------------
@@ -72,7 +72,7 @@
 # dendro_tape.R, computed on the RAW points, not the bins) plus max_edge_frac
 # on the final hull gate median_hull_valid exactly as in dendro_tape.R.
 #
-# Companion Python tool: scripts/median_polygon.py computes the same
+# Companion Python tool: scripts/median_polygon_10mm.py computes the same
 # fixed-arc-length median-binned convex hull independently (median_polygon_2deg.py
 # is its fixed-degree counterpart, same relationship as this file to
 # median_polygon_2deg.R). Deliberately no shared code with dendro_tape.py/.R
@@ -86,7 +86,7 @@
 # USAGE
 # -----
 # Cut a band at a picked height on a SECTION (clouds are Y-up -> --up-axis y):
-#   Rscript scripts/median_polygon.R section.ply --tree-id 1234 --up-axis y \
+#   Rscript scripts/median_polygon_10mm.R section.ply --tree-id 1234 --up-axis y \
 #       --height 2.31 --thickness 0.06 --bin-width-mm 10 --out results/median_polygon_r_10mm.csv
 # Measure an already-cut thin slice/disc as-is: omit --height.
 # =============================================================================
@@ -133,7 +133,7 @@ path       <- if (length(positional)) positional[1] else NA
 
 from_sheet <- has_flag("--from-sheet")
 if (is.na(path) && !from_sheet) {
-  stop("Usage: Rscript median_polygon.R <section.ply> [--up-axis y] [--height <m>] ",
+  stop("Usage: Rscript median_polygon_10mm.R <section.ply> [--up-axis y] [--height <m>] ",
        "[--thickness 0.06] [--bin-width-mm 10] [--tree-id id] ",
        "[--out results/median_polygon_r_10mm.csv] [--poly-dir <dir>] ",
        "| --from-sheet (batch-run using the CONFIG block at the top of this file)")

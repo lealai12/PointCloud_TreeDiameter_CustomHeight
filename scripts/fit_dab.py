@@ -16,15 +16,20 @@ the trunk is closer to circular) is the standard field workaround.
 
 Usage
 -----
-Single slice:
-    python fit_dab.py slices/tree01_slice.ply --tree-id tree01 --dab-height 2.3
+Cut a band at a picked height on a trunk SECTION, then measure it
+(clouds are Y-up -> --up-axis y; --slice-height is the flag that CUTS):
+    python fit_dab.py section.ply --tree-id tree01 --up-axis y \
+        --slice-height 2.31 --slice-thickness 0.06
+
+Measure an already-cut thin slice/disc as-is (omit --slice-height):
+    python fit_dab.py slice.ply --tree-id tree01 --up-axis y
 
 Batch a whole folder (one row per *.ply), append to results CSV:
-    python fit_dab.py slices/ --batch --out results/dab_results.csv
+    python fit_dab.py slices/ --batch --up-axis y --out results/dab_results.csv
 
 Also emit the see-able output bundle (2D fit figure + 3D circle/hull overlays +
 slice cloud + measure.txt) under a folder, one subfolder per tree:
-    python fit_dab.py slices/tree01_slice.ply --tree-id tree01 \
+    python fit_dab.py slice.ply --tree-id tree01 --up-axis y \
         --viz-dir <output_folder>/viz
 
 Notes
@@ -369,7 +374,10 @@ def main():
                          "both appended to --out (if given) and written back into SHEET_PATH's "
                          "OUTPUT_COL.")
     ap.add_argument("--tree-id", default=None)
-    ap.add_argument("--dab-height", type=float, default=None, help="Slice height above base (m).")
+    ap.add_argument("--dab-height", type=float, default=None,
+                    help="Measurement height (m) recorded into the output row as metadata. "
+                         "This does NOT cut a band -- use --slice-height for that. "
+                         "Defaults to --slice-height when that is given.")
     ap.add_argument("--up-axis", choices=["x", "y", "z"], default="z",
                     help="Which axis is the trunk/up axis. ForestScanner (ARKit) clouds "
                          "are Y-up -> use 'y'. Slicing uses this axis; the circle is fit "

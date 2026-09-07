@@ -4,7 +4,7 @@
 # Companion to validate_field_accuracy.R (the main field-accuracy comparison).
 # That script is untouched by this one and this script does NOT feed back
 # into it -- this is a separate, additive comparison, per project decision:
-# the median-hull method (scripts/median_polygon.py/.R +
+# the median-hull method (scripts/median_polygon_10mm.py/.R +
 # scripts/median_polygon_2deg.py/.R) exists to be compared against the
 # existing true-convex-hull method (scripts/dendro_tape.py / .R), not to
 # replace it.
@@ -14,9 +14,9 @@
 #   - "median hull"    = convex hull of a median-binned, denoised surface
 #                         polygon, in TWO bin-width variants, both kept
 #                         standalone rather than one replacing the other
-#                         (see median_polygon.py's header for why):
+#                         (see median_polygon_10mm.py's header for why):
 #       2deg = fixed 2-degree angular bin      (median_polygon_2deg.py/.R)
-#       10mm = fixed 10mm arc-length bin       (median_polygon.py/.R)
+#       10mm = fixed 10mm arc-length bin       (median_polygon_10mm.py/.R)
 #
 # PYTHON-ONLY OUTPUT (deliberate choice): every method here has an
 # independent R implementation too, and both parts below load and cross-check
@@ -42,7 +42,7 @@
 #     Dendrometer_MedianPolygon_RScript_Diameter_mm      = R median hull (2 deg angular bin)
 #     Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm = Python median hull (10mm arc-length bin)
 #     Dendrometer_MedianPolygon10mm_RScript_Diameter_mm      = R median hull (10mm arc-length bin)
-#   The 2 deg and 10mm median-hull columns are two separate median_polygon.py/.R
+#   The 2 deg and 10mm median-hull columns are two separate median_polygon_10mm.py/.R
 #   runs (fixed angular bin vs. fixed arc-length bin -- see that script's header
 #   for why the arc-length version was added), transcribed into separate
 #   columns rather than overwritten, so both remain comparable here.
@@ -68,7 +68,28 @@ suppressMessages({
 })
 source("scripts/plot_style.R")   # shared method labels/colours/shapes across all plots/*.png
 
-sheet   <- "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"
+# =============================================================================
+# CONFIG -- edit these for your own dataset.
+#
+# Same role as the CONFIG block at the top of every measurement script
+# (fit_dab.py/.R etc.): the one place a future researcher with a different
+# sheet location has to edit. `sheet` is deliberately an absolute path to the
+# LOCAL working root, not a repo-relative one -- the anonymized workbook lives
+# outside version control and is never committed.
+#
+# Note the project's standing advice (CLAUDE.md): every script in this repo
+# hardcodes this same path, so recreating that folder structure locally is
+# usually simpler and less error-prone than editing the path in each script.
+# Override without editing the file by setting the DAB_SHEET env var.
+#
+# BOTH parts below read ONLY the anonymized sheet, so all output here is
+# anonymization-safe and belongs in the tracked results/ folder. (If you ever
+# repoint a part at real-tag CSVs, its output must go to a folder OUTSIDE this
+# repo -- see the "never write real-tag output into results/" rule.)
+# Run from the repo root; the source() above is repo-relative.
+# =============================================================================
+sheet   <- Sys.getenv("DAB_SHEET",
+                      "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx")
 outdir  <- "results"
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)

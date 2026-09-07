@@ -27,7 +27,26 @@
 suppressMessages({ library(readxl); library(dplyr); library(tidyr); library(ggplot2) })
 source("scripts/plot_style.R")
 
-sheet   <- "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"
+# =============================================================================
+# CONFIG -- edit these for your own dataset.
+#
+# Same role as the CONFIG block at the top of every measurement script
+# (fit_dab.py/.R etc.): the one place a future researcher with a different
+# sheet location has to edit. `sheet` is deliberately an absolute path to the
+# LOCAL working root, not a repo-relative one -- the anonymized workbook lives
+# outside version control and is never committed.
+#
+# Note the project's standing advice (CLAUDE.md): every script in this repo
+# hardcodes this same path, so recreating that folder structure locally is
+# usually simpler and less error-prone than editing the path in each script.
+# Override without editing the file by setting the DAB_SHEET env var.
+#
+# Reads ONLY the anonymized sheet, so output is anonymization-safe and belongs
+# in the tracked results/ folder. Run from the repo root (source() above is
+# repo-relative).
+# =============================================================================
+sheet   <- Sys.getenv("DAB_SHEET",
+                      "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx")
 outdir  <- "results"
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
