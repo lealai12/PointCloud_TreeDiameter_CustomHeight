@@ -216,6 +216,9 @@ def main():
     updates = []   # (sheet_row, value_mm) pairs -- only populated in --from-sheet mode
 
     if args.from_sheet:
+        # sheet_batch.py lives at the scripts/ root, one level up from this
+        # Step folder -- put it on the import path before importing it.
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         from sheet_batch import SheetConfig, load_manifest, write_back_all
         cfg = SheetConfig(sheet_path=SHEET_PATH, tree_id_col=TREE_ID_COL, ply_folder=PLY_FOLDER,
                           ply_filename_pattern=PLY_FILENAME_PATTERN, site_label=SITE_LABEL,
@@ -235,7 +238,8 @@ def main():
                       f"cov={row['coverage_deg']:.0f}deg  "
                       f"maxedge={row['max_edge_frac']:.2f}{flag}")
                 if row["tape_valid"]:
-                    updates.append((m["row"], round(row["tape_equiv_diameter_cm"] * 10, 1)))
+                    # whole mm at the sheet only: the field readings are integer mm. CSV keeps full precision.
+                    updates.append((m["row"], int(round(row["tape_equiv_diameter_cm"] * 10))))
                 else:
                     print(f"[skip write-back] {m['tree_id']}: tape invalid (partial ring), "
                           "no diameter to write", file=sys.stderr)

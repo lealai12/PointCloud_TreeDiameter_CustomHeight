@@ -66,7 +66,7 @@
 suppressMessages({
   library(readxl); library(dplyr); library(tidyr); library(ggplot2)
 })
-source("scripts/plot_style.R")   # shared method labels/colours/shapes across all plots/*.png
+source("scripts/plot_style.R")   # cwd-relative (run from the repo root): shared method labels/colours/shapes across all plots/*.png
 
 # =============================================================================
 # CONFIG -- edit these for your own dataset.

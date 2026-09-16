@@ -25,7 +25,7 @@
 # =============================================================================
 
 suppressMessages({ library(readxl); library(dplyr); library(tidyr); library(ggplot2) })
-source("scripts/plot_style.R")
+source("scripts/plot_style.R")   # cwd-relative: run from the repo root
 
 # =============================================================================
 # CONFIG -- edit these for your own dataset.

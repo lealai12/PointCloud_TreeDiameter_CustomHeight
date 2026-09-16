@@ -1,7 +1,7 @@
 # Python Glossary — Point-Cloud Tree Diameter at Custom Height
 
 A plain-English reference for the Python used in this project's scripts
-(`scripts/fit_dab.py`, `scripts/loopclose.py`, `scripts/dendro_tape.py`). Every entry says **what it does**,
+(`scripts/fit_dab.py`, `scripts/Unused/loopclose.py`, `scripts/Step08_Measure/dendro_tape.py`). Every entry says **what it does**,
 shows a **snippet from our code**, and — where useful — gives an **R note** comparing
 it to something you already know from R.
 
@@ -50,7 +50,7 @@ python -m venv TreeDiameter_Environment        # create it (once)
 TreeDiameter_Environment\Scripts\Activate.ps1  # Windows PowerShell
 source TreeDiameter_Environment/bin/activate   # Mac/Linux
 # ...or just call the env's python directly, without activating:
-TreeDiameter_Environment/Scripts/python.exe scripts/loopclose.py ...   # Windows
+TreeDiameter_Environment/Scripts/python.exe scripts/Unused/loopclose.py ...   # Windows
 ```
 **`pip`** is Python's package installer (like `install.packages()` in R). Inside the env:
 ```bash
@@ -63,7 +63,7 @@ environment is set up you rarely touch pip again.
 
 ### Running a script from the terminal
 ```bash
-python scripts/fit_dab.py slices/tree01_slice.ply --dab-height 2.3
+python scripts/Step08_Measure/measure_slice.py slices/tree01_slice.ply --up-axis y
 ```
 `python` = the interpreter; then the script path; then **arguments** the script reads
 (see `argparse`, §7). **R note:** like `Rscript myscript.R arg1 arg2`.

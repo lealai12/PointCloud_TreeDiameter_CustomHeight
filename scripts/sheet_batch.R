@@ -142,7 +142,7 @@ write_back_all <- function(sheet_path, sheet_name, output_col, updates) {
         "  the Python/openpyxl path is the one exercised most in testing;\n",
         "  install Python and put it on PATH (or set SHEET_BATCH_PYTHON) if\n",
         "  you'd rather use that path instead.\n", sep = "")
-    source("scripts/xlsx_repair.R")
+    source("scripts/xlsx_repair.R")   # cwd-relative: run from the repo root
     return(write_back_all_direct_r(sheet_path, sheet_name, output_col, updates))
   }
 

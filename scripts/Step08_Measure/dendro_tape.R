@@ -178,7 +178,7 @@ report_row <- function(row) {
 
 # ------------------------------------------------------------------------ run
 if (from_sheet) {
-  source("scripts/sheet_batch.R")
+  source("scripts/sheet_batch.R")   # cwd-relative: run from the repo root
   manifest <- load_manifest(
     sheet_path = SHEET_PATH, sheet_name = SHEET_NAME, tree_id_col = TREE_ID_COL,
     height_col = HEIGHT_COL, ply_folder = PLY_FOLDER,
@@ -199,7 +199,8 @@ if (from_sheet) {
     rows[[length(rows) + 1]] <- result
     report_row(result)
     if (isTRUE(result$tape_valid)) {
-      updates[[length(updates) + 1]] <- list(row = m$row, value = round(result$tape_equiv_diameter_cm * 10, 1))
+      # whole mm at the sheet only: the field readings are integer mm. CSV keeps full precision.
+      updates[[length(updates) + 1]] <- list(row = m$row, value = round(result$tape_equiv_diameter_cm * 10))
     } else {
       cat(sprintf("[skip write-back] %s: tape invalid (partial ring), nothing to write\n", m$tree_id))
     }

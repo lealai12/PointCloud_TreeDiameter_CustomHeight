@@ -173,7 +173,7 @@ report_row <- function(row) {
 
 # ------------------------------------------------------------------------ run
 if (from_sheet) {
-  source("scripts/sheet_batch.R")
+  source("scripts/sheet_batch.R")   # cwd-relative: run from the repo root
   manifest <- load_manifest(
     sheet_path = SHEET_PATH, sheet_name = SHEET_NAME, tree_id_col = TREE_ID_COL,
     height_col = HEIGHT_COL, ply_folder = PLY_FOLDER,
