@@ -2,7 +2,7 @@
 
 Tools: CloudCompare or other Point Cloud Interface
 
-Note: The (s) refer to cases in which multiple scans are needed per tree and will be fused in Step 4
+Note: The (s) refer to cases in which multiple scans are needed per tree and will be fused in Step 3.
 
 Steps:
 1. Visually identify the locations(s) of the the scan(s) 

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # =============================================================================
 # cut_slice.R -- Step 05: cut a thin band at a picked height on a trunk
-# SECTION. Independent R twin of Step05_CutSlice/cut_slice.py.
+# SECTION. Independent R twin of Step04_CutSlices/cut_slice.py.
 #
 # Takes a whole trunk section (Step 04's Final_Disc_ply/<tag>.ply), the
 # picked measurement height (a coordinate along --up-axis; on ForestScanner
@@ -16,14 +16,14 @@
 # but the band it cuts is RAW: it still holds stray points outside the real
 # trunk surface (bark flakes, foliage, ghost points). The convex-hull "tape"
 # wraps around all of them, so on a raw band it reads high. Polishing
-# (Step 06) deletes those outside points, and a convex hull can only SHRINK
+# (Step 05) deletes those outside points, and a convex hull can only SHRINK
 # when points are removed -- so the hull reading here is an upper bound on
 # the final answer, never the answer itself. (The least-squares circle
 # diameter does not obey that rule; it can move either way.) Confirmed on
 # every one of this project's 32 sites, no exceptions: polishing changed the
 # hull reading on 28 of them, by a median of ~38 mm. Do not record this
-# script's diameter as the result -- polish the band (Step 06), export it
-# (Step 07), then measure it with Step08_Measure/measure_slice.R.
+# script's diameter as the result -- polish the band (Step 05), then measure
+# it at the Measure step with dendro_tape.R / dendro_tape.py.
 #
 # For that reason the CONFIG block below ships with OUTPUT_COL = NULL: in
 # --from-sheet mode this script reads tree IDs and heights from the sheet
@@ -41,10 +41,10 @@
 # USAGE
 # -----
 # One section, one height (clouds are Y-up -> --up-axis y):
-#   Rscript scripts/Step05_CutSlice/cut_slice.R section.ply --tree-id 1234__Dendrometer \
+#   Rscript scripts/Step04_CutSlices/cut_slice.R section.ply --tree-id 1234__Dendrometer \
 #       --up-axis y --slice-height 2.31 --slice-thickness 0.06 --viz-dir <folder>
 # Every tree in the sheet at once (heights from HEIGHT_COL, see CONFIG):
-#   Rscript scripts/Step05_CutSlice/cut_slice.R --from-sheet --up-axis y --viz-dir <folder>
+#   Rscript scripts/Step04_CutSlices/cut_slice.R --from-sheet --up-axis y --viz-dir <folder>
 # A folder of sections, all at ONE height (rarely what you want -- each tree
 # has its own picked height; prefer --from-sheet): --batch --slice-height <m>.
 # Lean correction on a leaning stem: --axis-ply <tall_segment.ply> (a TALL
@@ -55,7 +55,7 @@
 # ----------------
 # This file is a purpose-built copy of scripts/fit_dab.R (which stays at the
 # scripts/ root, untouched, as the record of what produced the published
-# results). cut_slice.R and measure_slice.R each carry their OWN copy of the
+# results). cut_slice.R and Unused/measure_slice.R each carry their OWN copy of the
 # fit code (measure_one() and its helpers) -- a fix to one is NOT a fix to
 # the other. Keep the three in step by hand.
 #
@@ -75,17 +75,19 @@ suppressMessages(library(Rvcg))     # PLY reader (independent of Python; no ITSM
 # script's --from-sheet batch mode against their own project. See also
 # scripts/sheet_batch.R, which this block's values get handed to.
 # =============================================================================
-SHEET_PATH <- "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"  # anonymized sheet -- .ply files are named with the same anonymized codes
+SHEET_PATH <- "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx"  # the measurements sheet; Tree_Tag matches the .ply file names
 SHEET_NAME <- 1                          # tab name (string) or 1-based index within SHEET_PATH
 TREE_ID_COL <- "Tree_Tag"                # column holding each tree's ID
 HEIGHT_COL <- "Y_value_Dendrometer"      # column holding the picked cut height (m); swap to
                                          # Y_value_TopFlag / Y_value_LowerFlag for those sites
-OUTPUT_COL <- NULL                       # NULL -> --from-sheet cuts every section but writes NOTHING
-                                         # back: the raw-band reading is a ceiling, not the estimate
-                                         # (see header). Name a column here only to log that ceiling.
+OUTPUT_COL <- NULL                       # NULL -> writes nothing. To log the raw-band (ceiling) reading,
+                                         # add a "<Site>_CutSlice_RScript_Diameter_mm" column to the sheet
+                                         # and name it here (the Python twin writes ..._pythonScript_...).
 PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working/Final_Disc_ply"  # whole trunk SECTIONS, not pre-cut discs
 PLY_FILENAME_PATTERN <- "{tree_id}.ply"  # {tree_id} required; {site} optional (see SITE_LABEL)
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern, if used
+OUTPUT_DIR <- "C:/Projects/LiDAR_Project/Working_Steps/4_CutSlices"  # where every cut band goes (one subfolder per tree-site);
+                                         # used whenever --viz-dir is not given on the command line
 
 # ------------------------------------------------------------------ CLI parsing
 args <- commandArgs(trailingOnly = TRUE)
@@ -121,7 +123,7 @@ if (!from_sheet && is.na(slice_height_arg)) {
 }
 slice_thickness  <- as.numeric(get_flag("--slice-thickness", 0.06))
 axis_ply         <- get_flag("--axis-ply", NA)
-viz_dir          <- get_flag("--viz-dir", NA)
+viz_dir          <- get_flag("--viz-dir", OUTPUT_DIR)
 out              <- get_flag("--out", NULL)
 
 # --------------------------------------------------------------- geometry helpers
@@ -198,14 +200,55 @@ hull_perimeter <- function(xy) {
 #   <tree>_hull_<C>.ply    3D green hull outline (only when the ring is well-covered)
 #   <tree>_measure.txt     the numbers in text
 write_ply_xyzrgb <- function(path, xyz3, rgb) {
+  # rgb: one c(r, g, b) applied to every point, or an n x 3 matrix of per-point colours
   n <- nrow(xyz3)
+  if (is.null(dim(rgb))) rgb <- matrix(rgb, nrow = n, ncol = 3, byrow = TRUE)
   header <- c("ply", "format ascii 1.0", sprintf("element vertex %d", n),
               "property float x", "property float y", "property float z",
               "property uchar red", "property uchar green", "property uchar blue",
               "end_header")
   body <- sprintf("%.6f %.6f %.6f %d %d %d",
-                   xyz3[, 1], xyz3[, 2], xyz3[, 3], rgb[1], rgb[2], rgb[3])
+                  xyz3[, 1], xyz3[, 2], xyz3[, 3], rgb[, 1], rgb[, 2], rgb[, 3])
   writeLines(c(header, body), path)
+}
+
+# Per-point (r, g, b) 0-255 from a PLY file, or NULL if it carries no colour.
+# Output-only: used so the written slice keeps the scan's real colours.
+# Read directly from the file because Rvcg::vcgImport(readcolor = TRUE)
+# crashes on a pure point cloud (no faces). Handles ASCII and binary PLY.
+load_rgb_ply <- function(path) {
+  con <- file(path, "rb"); on.exit(close(con))
+  fmt <- NULL; n <- 0L; props <- list(); in_vertex <- FALSE
+  repeat {
+    line <- readLines(con, n = 1, warn = FALSE)
+    if (!length(line)) return(NULL)
+    tok <- strsplit(trimws(line), "\\s+")[[1]]
+    if (tok[1] == "format") fmt <- tok[2]
+    if (tok[1] == "element") { in_vertex <- tok[2] == "vertex"; if (in_vertex) n <- as.integer(tok[3]) }
+    if (tok[1] == "property" && in_vertex) props[[length(props) + 1]] <- c(tok[2], tok[3])
+    if (tok[1] == "end_header") break
+  }
+  names_ <- vapply(props, `[`, "", 2)
+  if (!all(c("red", "green", "blue") %in% names_)) return(NULL)
+  if (identical(fmt, "ascii")) {
+    tab <- utils::read.table(con, nrows = n, colClasses = "numeric")
+    return(as.matrix(tab[, match(c("red", "green", "blue"), names_)]))
+  }
+  size <- c(char = 1, uchar = 1, int8 = 1, uint8 = 1, short = 2, ushort = 2, int16 = 2, uint16 = 2,
+            int = 4, uint = 4, int32 = 4, uint32 = 4, float = 4, float32 = 4, double = 8, float64 = 8)
+  sz <- size[vapply(props, `[`, "", 1)]
+  if (any(is.na(sz))) return(NULL)
+  stride <- sum(sz); off <- cumsum(c(0, sz))[-(length(sz) + 1)]
+  raw <- readBin(con, "raw", n = as.numeric(n) * stride)
+  if (length(raw) < n * stride) return(NULL)
+  pick <- function(name) {
+    k <- match(name, names_)
+    if (sz[k] != 1) return(NULL)                 # colours are uchar in every PLY this project uses
+    as.integer(raw[off[k] + 1 + stride * (0:(n - 1))])
+  }
+  r <- pick("red"); g <- pick("green"); b <- pick("blue")
+  if (is.null(r) || is.null(g) || is.null(b)) return(NULL)
+  cbind(r, g, b)
 }
 
 ring_xyz <- function(cx, cy, r, z, n = 500) {
@@ -235,7 +278,7 @@ plot_slice_fit <- function(xy, circ, loop, row, path) {
 # `R` is the lean-correction rotation applied to get `xy_fit` (identity if
 # none); overlay geometry is mapped back to ORIGINAL coords via `%*% R` (R is
 # orthogonal, so this is R's inverse) so it aligns with the disc in CloudCompare.
-write_slice_bundle <- function(viz_dir, tree_id, xyz_orig, xy_fit, z_fit, circ, row, R) {
+write_slice_bundle <- function(viz_dir, tree_id, xyz_orig, xy_fit, z_fit, circ, row, R, rgb_orig = NULL) {
   d <- file.path(viz_dir, tree_id)
   dir.create(d, showWarnings = FALSE, recursive = TRUE)
   C <- if (!is.na(row$hull_circumference_cm)) row$hull_circumference_cm else row$circle_circumference_cm
@@ -248,7 +291,9 @@ write_slice_bundle <- function(viz_dir, tree_id, xyz_orig, xy_fit, z_fit, circ, 
   }
 
   plot_slice_fit(xy_fit, circ, loop, row, file.path(d, sprintf("%s_slice_fit.png", tree_id)))
-  write_ply_xyzrgb(file.path(d, sprintf("%s_slice.ply", tree_id)), xyz_orig, c(180, 180, 180))
+  # slice cloud in original coords, keeping the scan's own colours (gray if it has none)
+  write_ply_xyzrgb(file.path(d, sprintf("%s_slice.ply", tree_id)), xyz_orig,
+                   if (is.null(rgb_orig)) c(180, 180, 180) else rgb_orig)
 
   ring <- ring_xyz(circ$cx, circ$cy, circ$r, z_fit) %*% R
   write_ply_xyzrgb(file.path(d, sprintf("%s_ring_%s.ply", tree_id, tag)), ring, c(255, 0, 0))
@@ -275,6 +320,8 @@ measure_one <- function(path, tree_id, up_axis, dab_height, slice_height,
   mesh <- Rvcg::vcgImport(path, clean = FALSE, silent = TRUE)
   xyz_orig <- t(mesh$vb[1:3, , drop = FALSE])
   if (nrow(xyz_orig) == 0) stop(sprintf("No points read from %s", path))
+  rgb_orig <- tryCatch(load_rgb_ply(path), error = function(e) NULL)   # output-only
+  if (!is.null(rgb_orig) && nrow(rgb_orig) != nrow(xyz_orig)) rgb_orig <- NULL
 
   up_idx <- match(up_axis, c("x", "y", "z"))
 
@@ -286,6 +333,7 @@ measure_one <- function(path, tree_id, up_axis, dab_height, slice_height,
     coord <- xyz_orig[, up_idx]
     keep  <- coord > (slice_height - slice_thickness / 2) & coord < (slice_height + slice_thickness / 2)
     xyz_orig <- xyz_orig[keep, , drop = FALSE]
+    if (!is.null(rgb_orig)) rgb_orig <- rgb_orig[keep, , drop = FALSE]
     if (is.na(dab_height)) dab_height <- slice_height
   }
 
@@ -348,7 +396,7 @@ measure_one <- function(path, tree_id, up_axis, dab_height, slice_height,
   row$low_confidence <- (cov < 270) || (circ$circle_rms_mm > 20)
 
   if (!is.na(viz_dir)) {
-    write_slice_bundle(viz_dir, tree_id, xyz_orig, xy, mean(xyz[, 3]), circ, row, R)
+    write_slice_bundle(viz_dir, tree_id, xyz_orig, xy, mean(xyz[, 3]), circ, row, R, rgb_orig)
   }
   row
 }

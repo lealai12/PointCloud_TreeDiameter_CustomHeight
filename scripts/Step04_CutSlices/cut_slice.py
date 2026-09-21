@@ -14,15 +14,15 @@ THE NUMBER THIS PRINTS IS A CEILING, NOT THE ESTIMATE
 This script keeps the full measurement code so Step 05 reports a number, but
 the band it cuts is RAW: it still holds stray points outside the real trunk
 surface (bark flakes, foliage, ghost points). The convex-hull "tape" wraps
-around all of them, so on a raw band it reads high. Polishing (Step 06)
+around all of them, so on a raw band it reads high. Polishing (Step 05)
 deletes those outside points, and a convex hull can only SHRINK when points
 are removed -- so the hull reading here is an upper bound on the final
 answer, never the answer itself. (The least-squares circle diameter does not
 obey that rule; it can move either way.) Confirmed on every one of this
 project's 32 sites, no exceptions: polishing changed the hull reading on 28
 of them, by a median of ~38 mm. Do not record this script's diameter as the
-result -- polish the band (Step 06), export it (Step 07), then measure it
-with Step08_Measure/measure_slice.py.
+result -- polish the band (Step 05), then measure it at the Measure step
+with dendro_tape.py / dendro_tape.R.
 
 For that reason the CONFIG block below ships with OUTPUT_COL = None: in
 --from-sheet mode this script reads tree IDs and heights from the sheet and
@@ -54,7 +54,7 @@ MAINTENANCE NOTE
 ----------------
 This file is a purpose-built copy of scripts/fit_dab.py (which stays at the
 scripts/ root, untouched, as the record of what produced the published
-results). cut_slice.py and measure_slice.py each carry their OWN copy of the
+results). cut_slice.py and Unused/measure_slice.py each carry their OWN copy of the
 fit code (analyze_slice and its helpers) -- a fix to one is NOT a fix to the
 other. Keep the three in step by hand.
 """
@@ -78,19 +78,20 @@ import numpy as np
 # script's --from-sheet batch mode against their own project. See also
 # scripts/sheet_batch.py, which this block's values get handed to.
 # =============================================================================
-SHEET_PATH = "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"  # anonymized sheet -- .ply files are named with the same anonymized codes
+SHEET_PATH = "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx"  # the measurements sheet; Tree_Tag matches the .ply file names
 SHEET_NAME = 0                        # tab name (string) or 0-based index (openpyxl convention --
                                       # the R measurement scripts' SHEET_NAME is 1-based, readxl's
                                       # convention; the default 0/1 both mean "the first sheet")
 TREE_ID_COL = "Tree_Tag"              # column holding each tree's ID
 HEIGHT_COL = "Y_value_Dendrometer"    # column holding the picked cut height (m); swap to
                                       # Y_value_TopFlag / Y_value_LowerFlag for those sites
-OUTPUT_COL = None                     # None -> --from-sheet cuts every section but writes NOTHING
-                                      # back: the raw-band reading is a ceiling, not the estimate
-                                      # (see header). Name a column here only to log that ceiling.
+OUTPUT_COL = "Dendrometer_CutSlice_pythonScript_Diameter_mm"  # the raw-band (ceiling) reading, whole mm;
+                                      # swap the site prefix to match SITE_LABEL. Set to None to write nothing.
 PLY_FOLDER = "C:/Projects/LiDAR_Project/Working/Final_Disc_ply"  # whole trunk SECTIONS, not pre-cut discs
 PLY_FILENAME_PATTERN = "{tree_id}.ply"   # {tree_id} required; {site} optional (see SITE_LABEL)
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern, if used
+OUTPUT_DIR = "C:/Projects/LiDAR_Project/Working_Steps/4_CutSlices"  # where every cut band goes (one subfolder per tree-site);
+                                      # used whenever --viz-dir is not given on the command line
 
 try:
     from plyfile import PlyData
@@ -109,6 +110,16 @@ def load_xyz(path: str) -> np.ndarray:
     ply = PlyData.read(path)
     v = ply["vertex"]
     return np.c_[np.asarray(v["x"]), np.asarray(v["y"]), np.asarray(v["z"])].astype(float)
+
+
+def load_rgb(path: str):
+    """Per-point (r,g,b) 0-255 from a PLY file, or None if it carries no colour.
+    Output-only: used so the written slice keeps the scan's real colours."""
+    v = PlyData.read(path)["vertex"]
+    names = v.data.dtype.names
+    if not all(c in names for c in ("red", "green", "blue")):
+        return None
+    return np.c_[np.asarray(v["red"]), np.asarray(v["green"]), np.asarray(v["blue"])].astype(int)
 
 
 # ------------------------------------------------------------------ lean correction
@@ -267,7 +278,7 @@ def plot_slice_fit(xy: np.ndarray, circ: dict, loop, row: dict, path: str) -> No
 
 def write_slice_bundle(viz_dir: str, tree_id: str, xyz_orig: np.ndarray,
                        xy_fit: np.ndarray, z_fit: float, circ: dict, row: dict,
-                       R: np.ndarray) -> str:
+                       R: np.ndarray, rgb_orig=None) -> str:
     """Write the per-slice output bundle to viz_dir/<tree_id>/. Returns that folder.
 
     `R` is the lean-correction rotation applied to get `xy_fit` (identity if none);
@@ -284,8 +295,9 @@ def write_slice_bundle(viz_dir: str, tree_id: str, xyz_orig: np.ndarray,
     # 2D figure — drawn in the fitted frame (the honest, lean-corrected cross-section)
     plot_slice_fit(xy_fit, circ, loop, row, os.path.join(d, f"{tree_id}_slice_fit.png"))
 
-    # slice cloud in original coords, neutral gray
-    write_ply_xyzrgb(os.path.join(d, f"{tree_id}_slice.ply"), xyz_orig, (180, 180, 180))
+    # slice cloud in original coords, keeping the scan's own colours (gray if it has none)
+    write_ply_xyzrgb(os.path.join(d, f"{tree_id}_slice.ply"), xyz_orig,
+                     rgb_orig if rgb_orig is not None else (180, 180, 180))
 
     # 3D circle overlay: build in fitted frame, map back to original with R
     ring = ring_xyz(circ["cx"], circ["cy"], circ["r"], z_fit) @ R
@@ -311,6 +323,7 @@ def analyze_slice(path: str, tree_id: str | None, dab_height: float | None,
                   slice_height: float | None = None,
                   slice_thickness: float = 0.06, up_axis: str = "z") -> dict:
     xyz_orig = load_xyz(path)
+    rgb_orig = load_rgb(path)   # output-only; None when the file has no colour
 
     # Which axis is the trunk/up axis. ForestScanner clouds are Y-up, so slicing
     # and the circle-fit plane must follow --up-axis, not a hard-coded Z.
@@ -326,6 +339,8 @@ def analyze_slice(path: str, tree_id: str | None, dab_height: float | None,
         keep = (coord > slice_height - slice_thickness / 2) & \
                (coord < slice_height + slice_thickness / 2)
         xyz_orig = xyz_orig[keep]
+        if rgb_orig is not None:
+            rgb_orig = rgb_orig[keep]
         if dab_height is None:
             dab_height = slice_height
 
@@ -378,7 +393,7 @@ def analyze_slice(path: str, tree_id: str | None, dab_height: float | None,
     # Optional: write the see-able output bundle (2D fig + 3D overlays + txt).
     if viz_dir:
         write_slice_bundle(viz_dir, row["tree_id"], xyz_orig, xy,
-                           float(xyz[:, 2].mean()), circ, row, R)
+                           float(xyz[:, 2].mean()), circ, row, R, rgb_orig=rgb_orig)
     return row
 
 
@@ -409,7 +424,7 @@ def main():
     ap.add_argument("--axis-ply", default=None,
                     help="Optional tall trunk-segment PLY used to estimate the stem "
                          "axis and correct for lean. Omit for near-vertical stems.")
-    ap.add_argument("--viz-dir", default=None,
+    ap.add_argument("--viz-dir", default=OUTPUT_DIR,
                     help="If set, write a per-slice output bundle (2D fit PNG, 3D "
                          "circle+hull overlay PLYs, slice cloud, measure.txt) under "
                         "<viz-dir>/<tree_id>/. Point this at whatever folder you keep visual QC output in.")
