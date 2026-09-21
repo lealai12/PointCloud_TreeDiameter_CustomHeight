@@ -17,8 +17,10 @@ around a set of points.) So the physically faithful mimic of a dendrometer is:
 This is grounded in the PHYSICS of the instrument, not in which method happens
 to score best on any particular dataset — that keeps the tool unbiased.
 
-There is deliberately NO circle fit and NO concave hull here: a circle assumes a
-round trunk, and a concave hull sinks into grooves — neither is what a taut band does.
+There is deliberately NO circle fit in the MEASUREMENT and NO concave hull here: a
+circle assumes a round trunk, and a concave hull sinks into grooves — neither is what
+a taut band does. (The optional --viz-dir picture draws a best-fit circle for visual
+reference only; it never feeds the diameter, the validity check or the sheet.)
 
 Companion R tool: scripts/dendro_tape.R computes the same convex-hull taut wrap in
 R. The two are independent implementations of one physical measurement, so a Python
@@ -35,6 +37,17 @@ Measure an already-cut thin slice/disc as-is (omit --slice-height):
 
 Batch a folder of *.ply (one row each):
     python dendro_tape.py slices/ --batch --up-axis y --out results/dendro_tape.csv
+
+Also write a picture bundle per slice (add to any of the above):
+    --viz-dir <folder>   ->  <folder>/<tree_id>/
+        <tree_id>_slice_fit.png   top-down: slice points, hull (tape), best-fit circle
+        <tree_id>_slice.ply       the slice cloud
+        <tree_id>_hull_<C>.ply    3D green hull outline
+        <tree_id>_ring_<C>.ply    3D red best-fit circle (reference only)
+        <tree_id>_gapedge.ply     3D magenta gap edge -- only on a rejected (partial) ring
+        <tree_id>_measure.txt     the numbers
+    On a ring rejected for a gap, the too-long hull edge is drawn thick in magenta and
+    the picture is labelled PARTIAL RING. This bundle replaces measure_slice.py's.
 """
 
 from __future__ import annotations
@@ -63,11 +76,11 @@ TREE_ID_COL = "Tree_Tag"              # column holding each tree's ID
 HEIGHT_COL = None                     # None -> measure each .ply as an already-cut, already-
                                       # polished disc (the normal workflow for this script);
                                       # set to e.g. "Y_value_Dendrometer" to cut on the fly instead
-OUTPUT_COL = "Dendrometer_pythonScript_Diameter_mm"  # SAME column fit_dab.py writes -- this
-                                      # script's raw-point convex hull is numerically identical
-                                      # to fit_dab.py's hull_equiv_diameter_cm on the same slice
-                                      # (confirmed project-wide), so the sheet only carries one
-                                      # Python true-hull column, not a separate one per script
+OUTPUT_COL = "Dendrometer_DendroTape_pythonScript_Diameter_mm"  # this script's own column.
+                                      # (The first pass shared "Dendrometer_pythonScript_Diameter_mm"
+                                      # with fit_dab.py/measure_slice.py -- same hull number -- but
+                                      # measure_slice.py has no gap check, so it is retired and
+                                      # this script now owns the Python convex-hull column.)
 PLY_FOLDER = "C:/Projects/LiDAR_Project/Working/Polished_Slices_ply"  # already-cut, polished discs
 PLY_FILENAME_PATTERN = "{tree_id}__{site}.ply"   # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern
@@ -137,9 +150,117 @@ def angular_coverage_deg(xy: np.ndarray) -> float:
 MAX_EDGE_FRAC = 0.5
 
 
+# ------------------------------------------------------------------ visualization
+# Picture bundle (--viz-dir). Ported from measure_slice.py's write_slice_bundle so the
+# polished-slice pictures survive that script's retirement. Nothing here changes the
+# measurement: the circle is fit ONLY to draw it, and the gap edge is the same edge
+# taut_band() already found.
+def fit_circle_kasa(xy: np.ndarray) -> dict:
+    """Algebraic (Kasa) least-squares circle -- for the picture only, never the diameter."""
+    x, y = xy[:, 0], xy[:, 1]
+    A = np.c_[x, y, np.ones(len(x))]
+    D, E, F = np.linalg.lstsq(A, x ** 2 + y ** 2, rcond=None)[0]
+    cx, cy = D / 2.0, E / 2.0
+    r = math.sqrt(max(F + cx ** 2 + cy ** 2, 0.0))
+    resid = np.hypot(x - cx, y - cy) - r
+    return {"cx": cx, "cy": cy, "r": r, "circle_diameter_cm": 100 * 2 * r,
+            "circle_rms_mm": 1000 * float(np.sqrt(np.mean(resid ** 2)))}
+
+
+def hull_loop_and_gap(xy: np.ndarray):
+    """Closed hull outline ((M+1)x2) and the index of its longest edge (loop[i] -> loop[i+1])."""
+    h = ConvexHull(xy)
+    loop = np.vstack([xy[h.vertices], xy[h.vertices][0]])
+    edges = np.linalg.norm(np.diff(loop, axis=0), axis=1)
+    return loop, int(np.argmax(edges))
+
+
+def to_3d(pts2d: np.ndarray, plane_idx, up_idx: int, up_value: float) -> np.ndarray:
+    """Put 2D cross-section points back into 3D at a fixed up-axis coordinate."""
+    out = np.empty((len(pts2d), 3))
+    out[:, plane_idx[0]] = pts2d[:, 0]
+    out[:, plane_idx[1]] = pts2d[:, 1]
+    out[:, up_idx] = up_value
+    return out
+
+
+def write_ply_xyzrgb(path: str, xyz: np.ndarray, rgb) -> None:
+    """ASCII PLY of points in one colour (loads beside the slice in CloudCompare)."""
+    xyz = np.asarray(xyz, float)
+    data = np.c_[xyz, np.tile(np.asarray(rgb, int), (len(xyz), 1))]
+    header = ("ply\nformat ascii 1.0\n"
+              f"element vertex {len(xyz)}\n"
+              "property float x\nproperty float y\nproperty float z\n"
+              "property uchar red\nproperty uchar green\nproperty uchar blue\n"
+              "end_header")
+    np.savetxt(path, data, fmt="%.6f %.6f %.6f %d %d %d", header=header, comments="")
+
+
+def write_slice_bundle(viz_dir: str, row: dict, xyz: np.ndarray, xy: np.ndarray,
+                       plane_idx, up_idx: int, axis_names) -> str:
+    """Write <viz_dir>/<tree_id>/ with the picture, overlay PLYs and measure.txt."""
+    import matplotlib
+    matplotlib.use("Agg")   # headless -- write the file, never open a window
+    import matplotlib.pyplot as plt
+
+    tid = row["tree_id"]
+    d = os.path.join(viz_dir, tid)
+    os.makedirs(d, exist_ok=True)
+    tag = f"C{row['tape_circumference_cm']:.1f}cm"
+    circ = fit_circle_kasa(xy)
+    loop, gi = hull_loop_and_gap(xy)
+    gap = loop[gi:gi + 2]
+    invalid = not row["tape_valid"]
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.scatter(xy[:, 0], xy[:, 1], s=2, c="0.6", label="slice points")
+    ax.plot(loop[:, 0], loop[:, 1], "g-", lw=1.2, label="hull (tape)")
+    t = np.linspace(0, 2 * math.pi, 400)
+    ax.plot(circ["cx"] + circ["r"] * np.cos(t), circ["cy"] + circ["r"] * np.sin(t),
+            "r-", lw=1.0, alpha=0.8, label="best-fit circle (reference only)")
+    ax.plot(circ["cx"], circ["cy"], "r+", ms=10)
+    if invalid:
+        ax.plot(gap[:, 0], gap[:, 1], color="magenta", lw=3.5,
+                label=f"gap edge ({row['max_edge_frac']:.2f} x diam)")
+    ax.set_aspect("equal", "datalim")
+    ax.set_xlabel(f"{axis_names[0]} (m)")
+    ax.set_ylabel(f"{axis_names[1]} (m)")
+    title = (f"{tid}   C = {row['tape_circumference_cm']:.1f} cm   "
+             f"(C/pi diam = {row['tape_equiv_diameter_cm']:.1f} cm)\n"
+             f"coverage {row['coverage_deg']:.0f} deg | max edge {row['max_edge_frac']:.2f} x diam"
+             + ("\n** PARTIAL RING -- tape invalid, not written to sheet **" if invalid else ""))
+    ax.set_title(title, fontsize=9, color="magenta" if invalid else "black")
+    ax.legend(fontsize=7, loc="upper right")
+    fig.tight_layout()
+    fig.savefig(os.path.join(d, f"{tid}_slice_fit.png"), dpi=150)
+    plt.close(fig)   # free the figure so a --batch run doesn't leak memory
+
+    up_value = float(xyz[:, up_idx].mean())
+    write_ply_xyzrgb(os.path.join(d, f"{tid}_slice.ply"), xyz, (180, 180, 180))
+    write_ply_xyzrgb(os.path.join(d, f"{tid}_hull_{tag}.ply"),
+                     to_3d(loop, plane_idx, up_idx, up_value), (0, 200, 0))
+    ring = np.c_[circ["cx"] + circ["r"] * np.cos(t[:-1]), circ["cy"] + circ["r"] * np.sin(t[:-1])]
+    write_ply_xyzrgb(os.path.join(d, f"{tid}_ring_{tag}.ply"),
+                     to_3d(ring, plane_idx, up_idx, up_value), (255, 0, 0))
+    if invalid:
+        s_ = np.linspace(0, 1, 200)[:, None]
+        write_ply_xyzrgb(os.path.join(d, f"{tid}_gapedge.ply"),
+                         to_3d(gap[0] + s_ * (gap[1] - gap[0]), plane_idx, up_idx, up_value),
+                         (255, 0, 255))
+
+    with open(os.path.join(d, f"{tid}_measure.txt"), "w") as f:
+        f.write(f"Tree {tid}\n")
+        for k in ("height_m", "n_points", "coverage_deg", "max_edge_frac",
+                  "tape_circumference_cm", "tape_equiv_diameter_cm", "tape_valid"):
+            f.write(f"{k}: {row.get(k)}\n")
+        f.write(f"reference_circle_diameter_cm: {circ['circle_diameter_cm']:.2f}  (picture only)\n")
+        f.write(f"reference_circle_rms_mm: {circ['circle_rms_mm']:.2f}  (picture only)\n")
+    return d
+
+
 def analyze_slice(path: str, tree_id: str | None, up_axis: str = "y",
                   slice_height: float | None = None, slice_thickness: float = 0.06,
-                  min_coverage: float = 270.0) -> dict:
+                  min_coverage: float = 270.0, viz_dir: str | None = None) -> dict:
     xyz = load_xyz(path)
 
     # Which column is the trunk/up axis, and which two form the cross-section plane.
@@ -169,7 +290,7 @@ def analyze_slice(path: str, tree_id: str | None, up_axis: str = "y",
     # no single hull edge chording across a big gap.
     valid = (cov >= min_coverage) and (tape["max_edge_frac"] <= MAX_EDGE_FRAC)
 
-    return {
+    row = {
         "tree_id": tree_id or os.path.splitext(os.path.basename(path))[0],
         "slice_file": os.path.basename(path),
         "up_axis": up_axis,
@@ -182,6 +303,10 @@ def analyze_slice(path: str, tree_id: str | None, up_axis: str = "y",
         "tape_equiv_diameter_cm": round(tape["tape_equiv_diameter_cm"], 2),
         "tape_valid": bool(valid),
     }
+    if viz_dir:
+        axis_names = [("x", "y", "z")[i] for i in plane_idx]
+        write_slice_bundle(viz_dir, row, xyz, xy, plane_idx, up_idx, axis_names)
+    return row
 
 
 def main():
@@ -210,6 +335,9 @@ def main():
                     help="Min angular coverage (deg) for a trustworthy tape wrap "
                          "(default 270). Below this, tape_valid=False.")
     ap.add_argument("--out", default=None, help="CSV to write/append results to.")
+    ap.add_argument("--viz-dir", default=None,
+                    help="Also write a picture bundle per slice under this folder "
+                         "(fit PNG, hull/circle/gap-edge overlay PLYs, slice cloud, measure.txt).")
     args = ap.parse_args()
 
     rows = []
@@ -229,7 +357,7 @@ def main():
         for m in manifest:
             try:
                 row = analyze_slice(m["path"], m["tree_id"], args.up_axis, m["height"],
-                                    args.slice_thickness, args.min_coverage)
+                                    args.slice_thickness, args.min_coverage, args.viz_dir)
                 rows.append(row)
                 flag = "" if row["tape_valid"] else "  ** PARTIAL RING — tape invalid **"
                 print(f"{row['tree_id']:<14} "
@@ -257,7 +385,7 @@ def main():
         for f in files:
             try:
                 row = analyze_slice(f, args.tree_id, args.up_axis, args.slice_height,
-                                    args.slice_thickness, args.min_coverage)
+                                    args.slice_thickness, args.min_coverage, args.viz_dir)
                 rows.append(row)
                 flag = "" if row["tape_valid"] else "  ** PARTIAL RING — tape invalid **"
                 print(f"{row['tree_id']:<14} "

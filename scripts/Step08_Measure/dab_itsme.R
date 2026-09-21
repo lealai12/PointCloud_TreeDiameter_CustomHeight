@@ -54,7 +54,7 @@ SHEET_NAME <- 1                          # tab name (string) or 1-based index wi
 TREE_ID_COL <- "Tree_Tag"                # column holding each tree's ID
 HEIGHT_COL <- "Y_value_Dendrometer"      # column holding the picked cut height (m); swap to
                                          # Y_value_TopFlag / Y_value_LowerFlag for those sites
-OUTPUT_COL <- "Dendrometer_RScript_Diameter_mm"  # column the diameter (mm) is written into
+OUTPUT_COL <- "Dendrometer_DabItsme_ConcaveHull_RScript_Diameter_mm"  # column the diameter (mm) is written into
 PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working/Final_Disc_ply"  # whole trunk SECTIONS, not pre-cut discs
 PLY_FILENAME_PATTERN <- "{tree_id}.ply"  # {tree_id} required; {site} optional (see SITE_LABEL)
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern, if used

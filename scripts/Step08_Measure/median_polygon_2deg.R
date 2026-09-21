@@ -97,7 +97,7 @@ TREE_ID_COL <- "Tree_Tag"                # column holding each tree's ID
 HEIGHT_COL <- NULL                       # NULL -> measure each .ply as an already-cut, already-
                                          # polished disc (the normal workflow for this script);
                                          # set to e.g. "Y_value_Dendrometer" to cut on the fly instead
-OUTPUT_COL <- "Dendrometer_MedianPolygon_RScript_Diameter_mm"  # the 2deg (original) column
+OUTPUT_COL <- "Dendrometer_MedianPolygon2deg_RScript_Diameter_mm"  # the 2deg (original) column
 PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working/Polished_Slices_ply"  # already-cut, polished discs
 PLY_FILENAME_PATTERN <- "{tree_id}__{site}.ply"  # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern

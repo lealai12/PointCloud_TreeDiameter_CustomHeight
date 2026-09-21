@@ -6,7 +6,7 @@
 #   - ForestScanner  (iPhone app, Dendrometer_ForestScanner_Diameter_mm)
 #   - Python hull    (fit_dab.py convex-hull equiv diameter)
 #   - R functional   (dab_itsme.R ITSMe concave-hull diameter)
-# against the field ground truth (Dendrometer_Reading, mm).
+# against the field ground truth (Dendrometer_FieldDiameter, mm).
 #
 # Run in TWO scopes:
 #   dendrometer_only  -> only trees with a real dendrometer (has_dendrometer
@@ -76,7 +76,8 @@ GROSS <- 0.5     # |error|/reading above this = likely data-entry error, exclude
 # this anonymized file, as-is -- no translation logic here.
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
-  filter(!is.na(Tree_Tag))
+  filter(!is.na(Tree_Tag)) %>%
+  filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
 # every dendrometer-site cloud-vs-reading pair (the "all_sites" scope) ------
 acc_all <- raw %>%
@@ -84,9 +85,9 @@ acc_all <- raw %>%
     tree          = Tree_Tag,
     has_dendro    = has_dendrometer,
     ForestScanner = num(Dendrometer_ForestScanner_Diameter_mm),
-    Python        = num(Dendrometer_pythonScript_Diameter_mm),
-    R             = num(Dendrometer_RScript_Diameter_mm),
-    reading       = num(Dendrometer_Reading)
+    Python        = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
+    R             = num(Dendrometer_DabItsme_ConcaveHull_RScript_Diameter_mm),
+    reading       = num(Dendrometer_FieldDiameter)
   ) %>%
   filter(!is.na(reading), !is.na(Python)) %>%
   mutate(size = if_else(has_dendro == "Yes", "DBH (dendrometer)", "DAB (above buttress)"))

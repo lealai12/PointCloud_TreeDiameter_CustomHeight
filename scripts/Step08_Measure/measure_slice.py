@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 """
+RETIRED 2026-09-21 -- moved to scripts/Unused/. dendro_tape.py / dendro_tape.R now write
+the convex-hull (tape) diameter to the sheet AND the per-slice picture bundle. Same hull
+number as this script, plus a gap check this script lacks (on the first-pass slices it
+rejected 6 of 32 rings this script accepted). OUTPUT_COL is disabled below so this file
+can never write to the sheet. Kept as the record.
+
 measure_slice.py -- Step 08: measure an already-cut, already-polished slice.
 
 Given a thin trunk cross-section exported as a point cloud (Step 07's
@@ -80,7 +86,7 @@ SHEET_NAME = 0                        # tab name (string) or 0-based index (open
 TREE_ID_COL = "Tree_Tag"              # column holding each tree's ID
 HEIGHT_COL = None                     # None -> measure each .ply as an already-cut, already-
                                       # polished slice, whole. This script never cuts.
-OUTPUT_COL = "Dendrometer_pythonScript_Diameter_mm"  # column the diameter (mm) is written into
+OUTPUT_COL = None                     # RETIRED -- was "Dendrometer_pythonScript_Diameter_mm"; this script no longer writes the sheet
 PLY_FOLDER = "C:/Projects/LiDAR_Project/Working/Polished_Slices_ply"  # already-cut, polished slices
 PLY_FILENAME_PATTERN = "{tree_id}__{site}.ply"   # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern

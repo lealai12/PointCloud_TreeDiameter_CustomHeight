@@ -36,18 +36,18 @@
 #   The true-hull and median-hull diameters (Python AND R, for the
 #   cross-check) are all columns in that sheet once anonymize-and-transcribed
 #   in -- this part needs NOTHING from outside the anonymized sheet:
-#     Dendrometer_pythonScript_Diameter_mm             = Python true hull (dendro_tape.py)
+#     Dendrometer_DendroTape_pythonScript_Diameter_mm             = Python true hull (dendro_tape.py)
 #     Dendrometer_DendroTape_RScript_Diameter_mm        = R true hull (dendro_tape.R)
-#     Dendrometer_MedianPolygon_pythonScript_Diameter_mm = Python median hull (2 deg angular bin)
-#     Dendrometer_MedianPolygon_RScript_Diameter_mm      = R median hull (2 deg angular bin)
+#     Dendrometer_MedianPolygon2deg_pythonScript_Diameter_mm = Python median hull (2 deg angular bin)
+#     Dendrometer_MedianPolygon2deg_RScript_Diameter_mm      = R median hull (2 deg angular bin)
 #     Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm = Python median hull (10mm arc-length bin)
 #     Dendrometer_MedianPolygon10mm_RScript_Diameter_mm      = R median hull (10mm arc-length bin)
 #   The 2 deg and 10mm median-hull columns are two separate median_polygon_10mm.py/.R
 #   runs (fixed angular bin vs. fixed arc-length bin -- see that script's header
 #   for why the arc-length version was added), transcribed into separate
 #   columns rather than overwritten, so both remain comparable here.
-#   NOTE: the sheet's older `RScript` column (no DendroTape/MedianPolygon tag)
-#   is a DIFFERENT method -- ITSMe's concave "functional" diameter
+#   NOTE: the sheet's `DabItsme_ConcaveHull_RScript` column (the first pass's plain
+#   `RScript` column) is a DIFFERENT method -- ITSMe's concave "functional" diameter
 #   (dab_itsme.R) -- not used here; don't confuse it with `DendroTape_RScript`.
 #
 #   Part 2 -- method_agreement: true hull vs. median hull, paired per
@@ -111,7 +111,8 @@ GROSS <- 0.5     # |error|/reading above this = likely data-entry/registration e
 # ===========================================================================
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
-  filter(!is.na(Tree_Tag))
+  filter(!is.na(Tree_Tag)) %>%
+  filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
 acc <- raw %>%
   transmute(
@@ -123,13 +124,13 @@ acc <- raw %>%
     # second read of the sheet. Deliberately excluded from `long`/the
     # written CSVs, which stay scoped to the three hull methods.
     ForestScanner            = num(Dendrometer_ForestScanner_Diameter_mm),
-    Python_true_hull        = num(Dendrometer_pythonScript_Diameter_mm),
+    Python_true_hull        = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
     R_true_hull             = num(Dendrometer_DendroTape_RScript_Diameter_mm),
-    Python_median_hull      = num(Dendrometer_MedianPolygon_pythonScript_Diameter_mm),
-    R_median_hull           = num(Dendrometer_MedianPolygon_RScript_Diameter_mm),
+    Python_median_hull      = num(Dendrometer_MedianPolygon2deg_pythonScript_Diameter_mm),
+    R_median_hull           = num(Dendrometer_MedianPolygon2deg_RScript_Diameter_mm),
     Python_median_hull_10mm = num(Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm),
     R_median_hull_10mm      = num(Dendrometer_MedianPolygon10mm_RScript_Diameter_mm),
-    reading            = num(Dendrometer_Reading)
+    reading            = num(Dendrometer_FieldDiameter)
   ) %>%
   filter(!is.na(reading)) %>%
   # SIZE GROUPING: measurement type, not a diameter threshold -- see
@@ -171,7 +172,7 @@ long <- acc %>%
          tree_label = sprintf("%s (%.0f)", tree, reading))
 
 if (nrow(long) == 0) {
-  cat("\n[Part 1 skipped] the sheet has no Dendrometer_MedianPolygon_*_Diameter_mm ",
+  cat("\n[Part 1 skipped] the sheet has no Dendrometer_MedianPolygon2deg_*_Diameter_mm ",
       "values yet -- anonymize-and-transcribe the median-hull results in first.\n", sep = "")
 } else {
   pertree <- long %>%
@@ -379,10 +380,10 @@ site_pair <- function(site) {
   raw %>%
     transmute(
       tree = Tree_Tag, site = site,
-      true_py = num(.data[[sprintf("%s_pythonScript_Diameter_mm", site)]]),
+      true_py = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", site)]]),
       true_r  = num(.data[[sprintf("%s_DendroTape_RScript_Diameter_mm", site)]]),
-      med_py  = num(.data[[sprintf("%s_MedianPolygon_pythonScript_Diameter_mm", site)]]),
-      med_r   = num(.data[[sprintf("%s_MedianPolygon_RScript_Diameter_mm", site)]])
+      med_py  = num(.data[[sprintf("%s_MedianPolygon2deg_pythonScript_Diameter_mm", site)]]),
+      med_r   = num(.data[[sprintf("%s_MedianPolygon2deg_RScript_Diameter_mm", site)]])
     )
 }
 pairs_2deg <- bind_rows(lapply(c("TopFlag", "LowerFlag", "Dendrometer"), site_pair)) %>%
@@ -393,7 +394,7 @@ pairs_2deg <- bind_rows(lapply(c("TopFlag", "LowerFlag", "Dendrometer"), site_pa
 pairs_10mm <- raw %>%
   transmute(
     tree = Tree_Tag, site = "Dendrometer",
-    true_py = num(Dendrometer_pythonScript_Diameter_mm),
+    true_py = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
     true_r  = num(Dendrometer_DendroTape_RScript_Diameter_mm),
     med_py  = num(Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm),
     med_r   = num(Dendrometer_MedianPolygon10mm_RScript_Diameter_mm)

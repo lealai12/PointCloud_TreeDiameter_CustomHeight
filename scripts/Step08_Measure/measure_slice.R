@@ -1,4 +1,9 @@
 #!/usr/bin/env Rscript
+# RETIRED 2026-09-21 -- moved to scripts/Unused/. dendro_tape.py / dendro_tape.R now write
+# the convex-hull (tape) diameter to the sheet AND the per-slice picture bundle. Same hull
+# number as this script, plus a gap check this script lacks (on the first-pass slices it
+# rejected 6 of 32 rings this script accepted). OUTPUT_COL is disabled below so this file
+# can never write to the sheet. Kept as the record.
 # =============================================================================
 # measure_slice.R -- Step 08: measure an already-cut, already-polished slice.
 # Independent R twin of Step08_Measure/measure_slice.py.
@@ -68,7 +73,7 @@ SHEET_NAME <- 1                          # tab name (string) or 1-based index wi
 TREE_ID_COL <- "Tree_Tag"                # column holding each tree's ID
 HEIGHT_COL <- NULL                       # NULL -> measure each .ply as an already-cut, already-
                                          # polished slice, whole. This script never cuts.
-OUTPUT_COL <- "Dendrometer_FitDab_RScript_Diameter_mm"  # column the diameter (mm) is written into
+OUTPUT_COL <- NULL                       # RETIRED -- was "Dendrometer_FitDab_RScript_Diameter_mm", a column no sheet ever had
 PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working/Polished_Slices_ply"  # already-cut, polished slices
 PLY_FILENAME_PATTERN <- "{tree_id}__{site}.ply"  # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern

@@ -1,5 +1,7 @@
 # Point-Cloud Tree Diameter at Custom Height
 
+Example tree is 2033
+
 A feasibility study: can **mobile-LiDAR point clouds** (iPhone / [ForestScanner](https://apps.apple.com/app/forestscanner/id1547643372)) be used to monitor tree diameter at an operator-chosen, non-standard height — e.g. **Diameter Above Buttress (DAB)** on heavily buttressed tropical trees — as a lower-effort alternative to manual tape sampling, which is extremely time- and labor-intensive when the trunk can't be tape-measured at the standard reference height?
 
 Bring your own scanned trees. A subset carrying **dendrometers** and/or **tape DBH/DAB** readings lets you validate against ground truth. Each tree's cross-section is measured **two independent ways** (Python and R) and compared against the field data. The deliverable is an assessment of **when the point-cloud method agrees with tape, and when it fails**.

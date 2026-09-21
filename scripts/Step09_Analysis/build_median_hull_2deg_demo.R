@@ -49,14 +49,15 @@ suppressMessages({ library(dplyr); library(tidyr); library(ggplot2); library(rea
 # =============================================================================
 sheet   <- Sys.getenv("DAB_SHEET",
                       "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx")
-SITE_COLUMN_PATTERN <- "%s_MedianPolygon_pythonScript_Diameter_mm"   # 2-degree bin
+SITE_COLUMN_PATTERN <- "%s_MedianPolygon2deg_pythonScript_Diameter_mm"   # 2-degree bin
 outdir  <- "results"
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
-  filter(!is.na(Tree_Tag))
+  filter(!is.na(Tree_Tag)) %>%
+  filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
 sites <- c("TopFlag", "LowerFlag", "Dendrometer")
 
@@ -66,7 +67,7 @@ demo <- bind_rows(lapply(sites, function(s) {
               site = s,
               height_m = .data[[sprintf("Y_value_%s", s)]],
               diameter_mm = .data[[sprintf(SITE_COLUMN_PATTERN, s)]],
-              dendrometer_reading_mm = if (s == "Dendrometer") suppressWarnings(as.numeric(Dendrometer_Reading)) else NA_real_,
+              dendrometer_reading_mm = if (s == "Dendrometer") suppressWarnings(as.numeric(Dendrometer_FieldDiameter)) else NA_real_,
               has_dendrometer = has_dendrometer)
 })) %>%
   filter(!is.na(diameter_mm)) %>%

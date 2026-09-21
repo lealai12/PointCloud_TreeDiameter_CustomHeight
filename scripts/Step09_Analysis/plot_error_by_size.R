@@ -56,7 +56,8 @@ GROSS <- 0.5     # |error|/reading above this = likely data-entry/registration e
 
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
-  filter(!is.na(Tree_Tag))
+  filter(!is.na(Tree_Tag)) %>%
+  filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
 # pivot column names use plot_style.R's internal method keys (relabel_method()
 # maps them to the shared display labels below) so this figure's colours and
@@ -64,12 +65,12 @@ raw <- read_excel(sheet) %>%
 acc <- raw %>%
   transmute(
     tree                  = Tree_Tag,
-    reading               = num(Dendrometer_Reading),
+    reading               = num(Dendrometer_FieldDiameter),
     has_dendrometer       = has_dendrometer,
     ForestScanner         = num(Dendrometer_ForestScanner_Diameter_mm),
-    Python_true_hull      = num(Dendrometer_pythonScript_Diameter_mm),
-    R                     = num(Dendrometer_RScript_Diameter_mm),
-    median_hull_2Degrees  = num(Dendrometer_MedianPolygon_pythonScript_Diameter_mm),
+    Python_true_hull      = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
+    R                     = num(Dendrometer_DabItsme_ConcaveHull_RScript_Diameter_mm),
+    median_hull_2Degrees  = num(Dendrometer_MedianPolygon2deg_pythonScript_Diameter_mm),
     median_hull_10mm      = num(Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm)
   ) %>%
   filter(!is.na(reading)) %>%

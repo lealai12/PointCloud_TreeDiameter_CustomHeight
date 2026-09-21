@@ -1,21 +1,47 @@
 # Step 03 — Clean the section
 
-**Tool:** CloudCompare, by hand. No script.
+Tools: CloudCompare or other Point Cloud Interface
 
-| | |
-|---|---|
-| **Takes** | `Working\Segment_Disc\<tag>_Disc.bin` from Step 02 |
-| **Makes** | `Working\Final_Disc\<tag>_Ready.bin` — the finished section, treated as read-only from here on |
-| **Feeds** | Step 04 — export to `.ply` |
 
-## What happens here
 
-A second, closer clean on the section alone: stray points, foliage, anything that isn't bark. Conservative SOR if needed. The section is small now, so it is easier to see what should go than it was on the whole tree.
+Steps:
+1. Use CloudCompare interface so that scans are viewed from directly above/below (along Z axis for most clouds, y axis if collected from ForestScanner).
+2. Use the "Segment" tool to clean points in the cloud that are not actually a part of the tree
+3. Save entity as .ply file
+4. Create .xlsx file containing columns for Tree Identifier and CloudCompare height of measurement. Configure script config headers to match.
 
-**And, for some trees, merge.** In this project the Step 03 pass was not only cleaning. Six trees show a real gap (2–20 minutes) between the Step 02 and Step 03 saves. Of those, three got *smaller* (3853, 5213, 5926 — cleaned) and three got *larger*: 2683 (+36 %), 4146 (+25 %), 4524 (+13 %). Those three grew because they were **merged at this stage** — confirmed by the operator. Merging adds points; the sheet records all three as `needs_loopclose = Yes` with a loop-close RMS (0.026, 0.033, 0.028). So the merge for those trees happened here, on the section, rather than on the whole cloud at Step 01.
+Optional Steps: If fusing an overlap, merging two incomplete stems, or point cleaning by Statistical Outlier Filter (SOR). Repeat steps 1-3 after optional steps. 
 
-After any merge, **subsample** the result to remove the duplicated points in the overlap zone. That does not appear to have been done on 2683, 4146 or 4524.
 
-## This project's run
+Batch Processing:
 
-- **19 of 19** trees have a `Final_Disc` file.
+Note: If batch processing, make sure that the correct cleaned segments are referenced by the spreadsheet. Having some trees that require optional steps and others that don't may require an additional organization of files to ensure that the correct segments are processed.
+
+Fusing an overlap:
+3a. Use the "Segment" tool to cut the section that is overlapping the other, without including the main underlapping area.
+4a. Use the "Align" Tool to orient the newly cut section to the existing tree.
+5a. Drag the section to overlap target area.
+6a. Select the "Finely registers (roughly) aligned entities (clouds or meshes)" tool to visualize scans' overlap.
+7a. Use the "Merge multiple clouds" Tool to fuse the overlapping section to the tree
+8a. Subsample the fused cloud to remove the duplicated points in the overlap zone to prevent density inconsistencies within the overlap.
+
+Merging multiple scans:
+3b. Bring the scans next to each other
+4b. Identify multiple locations that in both scans that will be used as stitching reference points for the fusion, preferably as close as possible to the gap site. Recommend using at least one point on opposite side of stem to ensure correct orientation
+5b. Use "Align" Tool to orient the scans to each other
+6b. Drag the scans to overlap each other.
+7b. Select the "Finely registers (roughly) aligned entities (clouds or meshes)" tool to visualize scans' overlap.
+8b. Use "Merge multiple clouds" Tool to merge the overlapping scans. 
+9b. Check the merge: view the overlap zone from above. Doubled or ghosted bark means the alignment is off — go back to 5b. The ICP RMS reported in 7b should be in the mm–cm range.
+10b. Subsample the merged cloud to remove the duplicated points in the overlap zone.
+
+
+Alternatively, a section can be cut using the "segment" tool from one tree and stitched to the other using the "merge multiple clouds" tool. This is preferred if one scan is far superior overall to the other.
+
+
+
+
+To clean cloud automatically by removing statistical outliers (SOR):
+3c. Select SOR tool in CloudCompare
+4c. Choose number of points to use for mean distance estimation and the standard deviation multiplier threshold. May take multiple tries to remove noise without removing legitimate stem area.
+5c. Be conservative. Over-aggressive SOR erodes the bark surface and biases the diameter down. When in doubt, use a larger standard deviation multiplier and clean the rest by hand with "Segment".
