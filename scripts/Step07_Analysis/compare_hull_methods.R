@@ -1,22 +1,22 @@
 #!/usr/bin/env Rscript
-# compare_hull_methods.R  --  HULL METHOD COMPARISON: true hull vs. median-polygon hull
+# compare_hull_methods.R  --  HULL METHOD COMPARISON: true hull vs. binned-polygon hull
 # ---------------------------------------------------------------------------
 # Companion to validate_field_accuracy.R (the main field-accuracy comparison).
 # That script is untouched by this one and this script does NOT feed back
 # into it -- this is a separate, additive comparison, per project decision:
-# the median-hull method (scripts/median_polygon_10mm.py/.R +
-# scripts/median_polygon_2deg.py/.R) exists to be compared against the
+# the binned-hull method (scripts/bin_mean_distance_radius.py/.R +
+# scripts/bin_fixed_angle.py/.R) exists to be compared against the
 # existing true-convex-hull method (scripts/dendro_tape.py / .R), not to
 # replace it.
 #
 # WHAT THIS COMPARES
 #   - "true hull"     = convex hull of the RAW slice points   (dendro_tape.*)
-#   - "median hull"    = convex hull of a median-binned, denoised surface
+#   - "binned hull"    = convex hull of a percentile-binned, denoised surface
 #                         polygon, in TWO bin-width variants, both kept
 #                         standalone rather than one replacing the other
-#                         (see median_polygon_10mm.py's header for why):
-#       2deg = fixed 2-degree angular bin      (median_polygon_2deg.py/.R)
-#       10mm = fixed 10mm arc-length bin       (median_polygon_10mm.py/.R)
+#                         (see bin_mean_distance_radius.py's header for why):
+#       2deg = fixed 2-degree angular bin      (bin_fixed_angle.py/.R)
+#       10mm = fixed 10mm arc-length bin       (bin_mean_distance_radius.py/.R)
 #
 # PYTHON-ONLY OUTPUT (deliberate choice): every method here has an
 # independent R implementation too, and both parts below load and cross-check
@@ -33,32 +33,32 @@
 #
 #   Part 1 -- vs_field_reading: reads ONLY the anonymized sheet
 #   (field_measurements_Anon.xlsx), same rule as validate_field_accuracy.R.
-#   The true-hull and median-hull diameters (Python AND R, for the
+#   The true-hull and binned-hull diameters (Python AND R, for the
 #   cross-check) are all columns in that sheet once anonymize-and-transcribed
 #   in -- this part needs NOTHING from outside the anonymized sheet:
 #     Dendrometer_DendroTape_pythonScript_Diameter_mm             = Python true hull (dendro_tape.py)
 #     Dendrometer_DendroTape_RScript_Diameter_mm        = R true hull (dendro_tape.R)
-#     Dendrometer_MedianPolygon2deg_pythonScript_Diameter_mm = Python median hull (2 deg angular bin)
-#     Dendrometer_MedianPolygon2deg_RScript_Diameter_mm      = R median hull (2 deg angular bin)
-#     Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm = Python median hull (10mm arc-length bin)
-#     Dendrometer_MedianPolygon10mm_RScript_Diameter_mm      = R median hull (10mm arc-length bin)
-#   The 2 deg and 10mm median-hull columns are two separate median_polygon_10mm.py/.R
+#     Dendrometer_BinFixedAngle_pythonScript_Diameter_mm = Python binned hull (2 deg angular bin)
+#     Dendrometer_BinFixedAngle_RScript_Diameter_mm      = R binned hull (2 deg angular bin)
+#     Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm = Python binned hull (10mm arc-length bin)
+#     Dendrometer_BinMeanDistanceRadius_RScript_Diameter_mm      = R binned hull (10mm arc-length bin)
+#   The 2 deg and 10mm binned-hull columns are two separate bin_mean_distance_radius.py/.R
 #   runs (fixed angular bin vs. fixed arc-length bin -- see that script's header
 #   for why the arc-length version was added), transcribed into separate
 #   columns rather than overwritten, so both remain comparable here.
 #   NOTE: the sheet's `DabItsme_ConcaveHull_RScript` column (the first pass's plain
 #   `RScript` column) is a DIFFERENT method -- ITSMe's concave "functional" diameter
-#   (dab_itsme.R) -- not used here; don't confuse it with `DendroTape_RScript`.
+#   (dab_itsme_concave_hull.R) -- not used here; don't confuse it with `DendroTape_RScript`.
 #
-#   Part 2 -- method_agreement: true hull vs. median hull, paired per
+#   Part 2 -- method_agreement: true hull vs. binned hull, paired per
 #   tree+site, PER BIN VARIANT (2deg, 10mm), with NO field reading required --
 #   the fuller processed batch (every measured site: TopFlag/LowerFlag/
 #   Dendrometer), not just the ones with field ground truth. ANONYMIZED
 #   SHEET ONLY, same rule as Part 1 and validate_field_accuracy.R -- reads
-#   TopFlag/LowerFlag/Dendrometer true-hull and median-hull columns straight
+#   TopFlag/LowerFlag/Dendrometer true-hull and binned-hull columns straight
 #   from field_measurements_Anon.xlsx, nothing else. The 10mm-bin variant
 #   stays Dendrometer-only: the anonymized sheet only has
-#   *_MedianPolygon10mm_* columns for that site.
+#   *_BinMeanDistanceRadius_* columns for that site.
 #
 # Run:  Rscript scripts/compare_hull_methods.R
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ num   <- function(x) suppressWarnings(as.numeric(x))
 GROSS <- 0.5     # |error|/reading above this = likely data-entry/registration error, excluded
 
 # ===========================================================================
-# PART 1 -- true hull & median hull vs. field reading.
+# PART 1 -- true hull & binned hull vs. field reading.
 # Anonymized sheet ONLY -- same rule as validate_field_accuracy.R.
 #
 # Python-only in the OUTPUT (results CSVs/plots): R is still read in here and
@@ -118,7 +118,7 @@ acc <- raw %>%
   transmute(
     tree               = Tree_Tag,
     has_dendro         = has_dendrometer,
-    # Not part of the true-hull/median-hull comparison this script exists for
+    # Not part of the true-hull/binned-hull comparison this script exists for
     # (see header) -- kept only so the plotting section below can build the
     # combined ForestScanner + hull-methods figures (FIG 2a/3/3b) without a
     # second read of the sheet. Deliberately excluded from `long`/the
@@ -126,10 +126,10 @@ acc <- raw %>%
     ForestScanner            = num(Dendrometer_ForestScanner_Diameter_mm),
     Python_true_hull        = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
     R_true_hull             = num(Dendrometer_DendroTape_RScript_Diameter_mm),
-    Python_median_hull      = num(Dendrometer_MedianPolygon2deg_pythonScript_Diameter_mm),
-    R_median_hull           = num(Dendrometer_MedianPolygon2deg_RScript_Diameter_mm),
-    Python_median_hull_10mm = num(Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm),
-    R_median_hull_10mm      = num(Dendrometer_MedianPolygon10mm_RScript_Diameter_mm),
+    Python_bin_hull_FixedAngle      = num(Dendrometer_BinFixedAngle_pythonScript_Diameter_mm),
+    R_bin_hull_FixedAngle           = num(Dendrometer_BinFixedAngle_RScript_Diameter_mm),
+    Python_bin_hull_MeanDistanceRadius = num(Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm),
+    R_bin_hull_MeanDistanceRadius      = num(Dendrometer_BinMeanDistanceRadius_RScript_Diameter_mm),
     reading            = num(Dendrometer_FieldDiameter)
   ) %>%
   filter(!is.na(reading)) %>%
@@ -149,20 +149,20 @@ py_r_check <- function(py_col, r_col, label) {
               label, nrow(d), maxdiff))
 }
 py_r_check("Python_true_hull",        "R_true_hull",        "true_hull")
-py_r_check("Python_median_hull",      "R_median_hull",      "median_hull_2deg")
-py_r_check("Python_median_hull_10mm", "R_median_hull_10mm", "median_hull_10mm")
+py_r_check("Python_bin_hull_FixedAngle",      "R_bin_hull_FixedAngle",      "bin_hull_FixedAngle")
+py_r_check("Python_bin_hull_MeanDistanceRadius", "R_bin_hull_MeanDistanceRadius", "bin_hull_MeanDistanceRadius")
 
 long <- acc %>%
-  pivot_longer(c(Python_true_hull, Python_median_hull, Python_median_hull_10mm),
+  pivot_longer(c(Python_true_hull, Python_bin_hull_FixedAngle, Python_bin_hull_MeanDistanceRadius),
                names_to = "method", values_to = "est") %>%
   # Display names for CSV columns/plots: drop "Python_" (results are
   # Python-only now, see the cross-check above -- the prefix no longer
   # disambiguates anything) and disambiguate the 2deg variant explicitly
-  # instead of leaving it as the unqualified "median_hull".
+  # instead of leaving it as the unqualified "bin_hull".
   mutate(method = recode(method,
                           Python_true_hull        = "true_hull",
-                          Python_median_hull      = "median_hull_2Degrees",
-                          Python_median_hull_10mm = "median_hull_10mm")) %>%
+                          Python_bin_hull_FixedAngle      = "bin_hull_FixedAngle",
+                          Python_bin_hull_MeanDistanceRadius = "bin_hull_MeanDistanceRadius")) %>%
   filter(!is.na(est)) %>%
   mutate(err   = est - reading,
          pct   = 100 * err / reading,
@@ -172,8 +172,8 @@ long <- acc %>%
          tree_label = sprintf("%s (%.0f)", tree, reading))
 
 if (nrow(long) == 0) {
-  cat("\n[Part 1 skipped] the sheet has no Dendrometer_MedianPolygon2deg_*_Diameter_mm ",
-      "values yet -- anonymize-and-transcribe the median-hull results in first.\n", sep = "")
+  cat("\n[Part 1 skipped] the sheet has no Dendrometer_BinFixedAngle_*_Diameter_mm ",
+      "values yet -- anonymize-and-transcribe the binned-hull results in first.\n", sep = "")
 } else {
   pertree <- long %>%
     mutate(tag = ifelse(gross, sprintf("%.0f*", pct), sprintf("%.0f", pct))) %>%
@@ -240,14 +240,14 @@ if (nrow(long) == 0) {
     labs(title = "Estimated Diameter vs. Dendrometer Reading",
          subtitle = "dashed = 1:1;  x = ForestScanner gross data-entry misread (tree labeled)",
          x = "Dendrometer reading (mm)", y = "Estimated diameter (mm)",
-         caption = "Median hull, 2° and Median hull, 10 mm overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.") +
+         caption = "Binned hull, fixed angle and Binned hull, mean-distance radius overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_scatter.png"), p_fig2a, width = 7.5, height = 6.8, dpi = 130)
 
   # ---- FIG 2b: Bland-Altman, the three hull arms only (no ForestScanner --
   # this figure is about agreement between the hull methods and the field
   # reading, not another vs.-reading scatter). Bias/limits of agreement
-  # computed excl. tree 17, for Convex hull and Median hull 2deg only (the
+  # computed excl. tree 17, for Convex hull and Binned hull 2deg only (the
   # two arms with the biggest spread difference).
   ba_stats <- function(m) {
     d <- long %>% filter(method == m, tree != "17")
@@ -255,9 +255,9 @@ if (nrow(long) == 0) {
     list(bias = b, lo = b - 1.96 * s, hi = b + 1.96 * s)
   }
   stat_true <- ba_stats("true_hull")
-  stat_med2 <- ba_stats("median_hull_2Degrees")
+  stat_med2 <- ba_stats("bin_hull_FixedAngle")
   col_true  <- METHOD_COLORS[["Convex hull"]]
-  col_med2  <- METHOD_COLORS[["Median hull, 2°"]]
+  col_med2  <- METHOD_COLORS[["Binned hull, fixed angle"]]
 
   ba_data <- long %>% mutate(method_label = relabel_method(method), mean_est = (est + reading) / 2)
   p_fig2b <- ggplot(ba_data, aes(mean_est, err, colour = method_label, shape = method_label)) +
@@ -272,7 +272,7 @@ if (nrow(long) == 0) {
               show.legend = FALSE) +
     scale_colour_method() + scale_shape_method() +
     labs(title = "Agreement with Dendrometer Reading (Bland-Altman)",
-         subtitle = "dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Median hull, 2°; excl. tree 17)",
+         subtitle = "dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Binned hull, fixed angle; excl. tree 17)",
          x = "Mean of estimate and reading (mm)", y = "Estimate − reading (mm)") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_bland_altman.png"), p_fig2b, width = 8, height = 6, dpi = 130)
@@ -345,18 +345,18 @@ if (nrow(long) == 0) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_error_mm.png"), p_fig3b, width = 9.5, height = 5.5, dpi = 130)
 
-  # ---- FIG Q3: bin-width agreement -- the two median-hull variants overlap
+  # ---- FIG Q3: bin-width agreement -- the two binned-hull variants overlap
   # almost exactly in FIG 2a (a legend entry with no visible points reads
   # like a rendering bug); this figure shows why, on its own axis.
-  q3_data <- long %>% filter(method %in% c("median_hull_2Degrees", "median_hull_10mm")) %>%
+  q3_data <- long %>% filter(method %in% c("bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius")) %>%
     select(tree, reading, method, est) %>%
     pivot_wider(names_from = method, values_from = est) %>%
-    mutate(diff_mm = median_hull_2Degrees - median_hull_10mm)
+    mutate(diff_mm = bin_hull_FixedAngle - bin_hull_MeanDistanceRadius)
 
   p_q3 <- ggplot(q3_data, aes(reading, diff_mm)) +
     geom_hline(yintercept = 0, colour = "grey40") +
     geom_point(size = 3, colour = col_med2) +
-    labs(title = "Bin-Width Agreement: Median Hull, 2° vs. 10 mm",
+    labs(title = "Bin-Width Agreement: Binned Hull, Fixed Angle vs. Mean-Distance Radius",
          subtitle = "(2° estimate − 10mm estimate) per tree -- the two bin widths are\nindistinguishable at the scale of the measurement",
          x = "Dendrometer reading (mm)", y = "2° estimate − 10mm estimate (mm)") +
     theme_minimal(base_size = 12)
@@ -369,7 +369,7 @@ if (nrow(long) == 0) {
 }
 
 # ===========================================================================
-# PART 2 -- true hull vs. median hull, PAIRED (same tree+site), no field
+# PART 2 -- true hull vs. binned hull, PAIRED (same tree+site), no field
 # reading required. Anonymized sheet ONLY -- see header above.
 #
 # Python-only in the OUTPUT here too, same reasoning and same 2026-08-02
@@ -382,8 +382,8 @@ site_pair <- function(site) {
       tree = Tree_Tag, site = site,
       true_py = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", site)]]),
       true_r  = num(.data[[sprintf("%s_DendroTape_RScript_Diameter_mm", site)]]),
-      med_py  = num(.data[[sprintf("%s_MedianPolygon2deg_pythonScript_Diameter_mm", site)]]),
-      med_r   = num(.data[[sprintf("%s_MedianPolygon2deg_RScript_Diameter_mm", site)]])
+      med_py  = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", site)]]),
+      med_r   = num(.data[[sprintf("%s_BinFixedAngle_RScript_Diameter_mm", site)]])
     )
 }
 pairs_2deg <- bind_rows(lapply(c("TopFlag", "LowerFlag", "Dendrometer"), site_pair)) %>%
@@ -396,8 +396,8 @@ pairs_10mm <- raw %>%
     tree = Tree_Tag, site = "Dendrometer",
     true_py = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
     true_r  = num(Dendrometer_DendroTape_RScript_Diameter_mm),
-    med_py  = num(Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm),
-    med_r   = num(Dendrometer_MedianPolygon10mm_RScript_Diameter_mm)
+    med_py  = num(Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm),
+    med_r   = num(Dendrometer_BinMeanDistanceRadius_RScript_Diameter_mm)
   ) %>%
   filter(!is.na(true_py), !is.na(med_py))
 
@@ -411,17 +411,17 @@ pair_check <- function(df, py_col, r_col, label) {
               label, nrow(d), max(abs(d[[py_col]] - d[[r_col]]))))
 }
 pair_check(pairs_2deg, "true_py", "true_r", "true_hull")
-pair_check(pairs_2deg, "med_py",  "med_r",  "median_hull_2deg")
-pair_check(pairs_10mm, "med_py",  "med_r",  "median_hull_10mm")
+pair_check(pairs_2deg, "med_py",  "med_r",  "bin_hull_FixedAngle")
+pair_check(pairs_10mm, "med_py",  "med_r",  "bin_hull_MeanDistanceRadius")
 
 to_agreement <- function(df, variant) {
-  df %>% transmute(tree, site, variant = variant, true_est = true_py, median_est = med_py,
-                    diff_mm = median_est - true_est, pct_diff = 100 * diff_mm / true_est)
+  df %>% transmute(tree, site, variant = variant, true_est = true_py, bin_est = med_py,
+                    diff_mm = bin_est - true_est, pct_diff = 100 * diff_mm / true_est)
 }
-agreement <- bind_rows(to_agreement(pairs_2deg, "2Degrees"), to_agreement(pairs_10mm, "10mm"))
+agreement <- bind_rows(to_agreement(pairs_2deg, "FixedAngle"), to_agreement(pairs_10mm, "MeanDistanceRadius"))
 
 if (nrow(agreement) == 0) {
-  cat("\n[Part 2 skipped] need both a true-hull and a median-hull value (anonymized sheet) for at least one site/variant.\n")
+  cat("\n[Part 2 skipped] need both a true-hull and a binned-hull value (anonymized sheet) for at least one site/variant.\n")
 } else {
   write.csv(agreement, file.path(outdir, "hull_comparison_method_agreement_pertree.csv"), row.names = FALSE)
 
@@ -430,12 +430,12 @@ if (nrow(agreement) == 0) {
               mean_diff_mm = mean(diff_mm), mean_abs_diff_mm = mean(abs(diff_mm)),
               mean_abs_pct_diff = mean(abs(pct_diff)),
               max_abs_diff_mm = max(abs(diff_mm)),
-              cor = suppressWarnings(cor(true_est, median_est)),
+              cor = suppressWarnings(cor(true_est, bin_est)),
               .groups = "drop")
   write.csv(agree_summary, file.path(outdir, "hull_comparison_method_agreement_summary.csv"), row.names = FALSE)
 
   cat("\n============ HULL METHOD COMPARISON -- METHOD AGREEMENT (Python, paired per bin variant) ============\n")
-  cat("negative diff_mm = median hull read SMALLER than true hull (denoising pulled a stray-point-\n")
+  cat("negative diff_mm = binned hull read SMALLER than true hull (denoising pulled a stray-point-\n")
   cat("inflated hull in); large |pct_diff| flags a tree/site worth a manual look at the raw slice.\n\n")
   cat(sprintf("(%d per-tree-site rows written to hull_comparison_method_agreement_pertree.csv -- not printed here.)\n",
               nrow(agreement)))
@@ -445,14 +445,14 @@ if (nrow(agreement) == 0) {
                  mean_abs_pct_diff = round(mean_abs_pct_diff, 1), cor = round(cor, 3))),
         row.names = FALSE)
 
-  lim2 <- range(c(agreement$true_est, agreement$median_est), na.rm = TRUE)
-  p3 <- ggplot(agreement, aes(true_est, median_est, colour = variant)) +
+  lim2 <- range(c(agreement$true_est, agreement$bin_est), na.rm = TRUE)
+  p3 <- ggplot(agreement, aes(true_est, bin_est, colour = variant)) +
     geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
     geom_point(size = 3, alpha = 0.85) +
     coord_equal(xlim = lim2, ylim = lim2) +
-    labs(title = "Hull Method Comparison -- True Hull vs. Median-Polygon Hull (paired, per tree/site)",
+    labs(title = "Hull Method Comparison -- True Hull vs. Binned-Polygon Hull (paired, per tree/site)",
          subtitle = "dashed = 1:1",
-         x = "True hull equiv. diameter (mm)", y = "Median hull equiv. diameter (mm)") +
+         x = "True hull equiv. diameter (mm)", y = "Binned hull equiv. diameter (mm)") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_method_agreement_scatter.png"), p3, width = 7, height = 6, dpi = 130)
 

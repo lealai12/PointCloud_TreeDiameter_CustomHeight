@@ -1,7 +1,7 @@
 # =============================================================================
 # sheet_batch.R -- shared spreadsheet-driven batch-run helper for the
-# per-.ply measurement scripts (fit_dab.R, dab_itsme.R, dendro_tape.R,
-# median_polygon_10mm.R, median_polygon_2deg.R).
+# per-.ply measurement scripts (fit_dab.R, dab_itsme_concave_hull.R, dendro_tape.R,
+# bin_mean_distance_radius.R, bin_fixed_angle.R).
 #
 # WHY THIS EXISTS
 # ----------------

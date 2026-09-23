@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # =============================================================================
-# build_median_hull_2deg_demo.R -- demonstration table + figure of the
-# median-hull, 2-degree-bin method (median_polygon_2deg.py) across every
+# bin_fixed_angle_demo.R -- demonstration table + figure of the
+# binned-hull, 2-degree-bin method (bin_fixed_angle.py) across every
 # processed tree/site, not just the field-validated subset.
 #
 # WHY THIS EXISTS
@@ -34,14 +34,14 @@ suppressMessages({ library(dplyr); library(tidyr); library(ggplot2); library(rea
 # usually simpler and less error-prone than editing the path in each script.
 # Override without editing the file by setting the DAB_SHEET env var.
 #
-# SITE_COLUMN_PATTERN selects which median-hull variant this demo plots.
+# SITE_COLUMN_PATTERN selects which binned-hull variant this demo plots.
 # It currently points at the 2-degree-bin columns (hence this script's name),
 # because on THIS project's validated subset the 2-degree and 10mm arc-length
 # variants came out virtually identical with 2 degrees marginally ahead. That
 # is a finding about this dataset, not a general result -- the two variants
 # diverge as trunk size varies, so another project may well prefer the other
 # one. To plot the 10mm variant instead, switch this to
-# "%s_MedianPolygon10mm_pythonScript_Diameter_mm" and update this script's
+# "%s_BinMeanDistanceRadius_pythonScript_Diameter_mm" and update this script's
 # name, title and subtitle to match.
 #
 # Reads ONLY the anonymized sheet, so output is anonymization-safe and belongs
@@ -49,7 +49,7 @@ suppressMessages({ library(dplyr); library(tidyr); library(ggplot2); library(rea
 # =============================================================================
 sheet   <- Sys.getenv("DAB_SHEET",
                       "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx")
-SITE_COLUMN_PATTERN <- "%s_MedianPolygon2deg_pythonScript_Diameter_mm"   # 2-degree bin
+SITE_COLUMN_PATTERN <- "%s_BinFixedAngle_pythonScript_Diameter_mm"   # 2-degree bin
 outdir  <- "results"
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
@@ -74,8 +74,8 @@ demo <- bind_rows(lapply(sites, function(s) {
   arrange(diameter_mm) %>%
   mutate(tree_id = factor(tree_id, levels = unique(tree_id)))
 
-write.csv(demo, file.path(outdir, "median_hull_2deg_demo_all_sites.csv"), row.names = FALSE)
-cat(sprintf("Wrote %d rows -> %s\n", nrow(demo), file.path(outdir, "median_hull_2deg_demo_all_sites.csv")))
+write.csv(demo, file.path(outdir, "bin_fixed_angle_demo_all_sites.csv"), row.names = FALSE)
+cat(sprintf("Wrote %d rows -> %s\n", nrow(demo), file.path(outdir, "bin_fixed_angle_demo_all_sites.csv")))
 cat("\n")
 print(as.data.frame(demo), row.names = FALSE)
 
@@ -84,12 +84,12 @@ p <- ggplot(demo, aes(tree_id, diameter_mm, colour = site)) +
   geom_point(size = 3) +
   scale_colour_manual(values = c(LowerFlag = "#0072B2", Dendrometer = "#009E73", TopFlag = "#E69F00"),
                        name = "Site") +
-  labs(title = "Median hull, 2\u00b0 bins -- diameter at every processed site",
+  labs(title = "Binned hull, fixed angle -- diameter at every processed site",
        subtitle = "Applied to every processed tree/site, not just the field-validated subset used to check it\n(2° and 10mm arc-length bins scored virtually identically here -- a result specific to this dataset)",
-       x = "Tree (anonymized code)", y = "Median-hull equivalent diameter (mm)") +
+       x = "Tree (anonymized code)", y = "Binned-hull equivalent diameter (mm)") +
   theme_minimal(base_size = 11) +
   theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
-out_png <- file.path(plotdir, "median_hull_2deg_demo_all_sites.png")
+out_png <- file.path(plotdir, "bin_fixed_angle_demo_all_sites.png")
 ggsave(out_png, p, width = 10, height = 6, dpi = 130)
 cat(sprintf("\nWrote %s\n", out_png))

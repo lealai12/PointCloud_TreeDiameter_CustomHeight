@@ -21,7 +21,7 @@
 # a round trunk, a concave hull sinks into grooves -- neither is what a taut band does.
 # (The optional --viz-dir picture draws a best-fit circle for visual reference only;
 # it never feeds the diameter, the validity check or the sheet. This is a
-# plain-geometry tool; it does NOT use ITSMe, unlike dab_itsme.R.)
+# plain-geometry tool; it does NOT use ITSMe, unlike dab_itsme_concave_hull.R.)
 #
 # Companion Python tool: scripts/dendro_tape.py computes the same convex-hull taut
 # wrap. Two independent implementations of one physical measurement -> an R lab
@@ -55,7 +55,7 @@ suppressMessages(library(Rvcg))     # PLY reader (independent of Python; no ITSM
 # script's --from-sheet batch mode against their own project. See also
 # scripts/sheet_batch.R, which this block's values get handed to.
 # =============================================================================
-SHEET_PATH <- "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"  # anonymized sheet -- .ply files are named with the same anonymized codes
+SHEET_PATH <- "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx"  # the working sheet; Tree_Tag matches the .ply file names
 SHEET_NAME <- 1                          # tab name (string) or 1-based index within SHEET_PATH
 TREE_ID_COL <- "Tree_Tag"                # column holding each tree's ID
 HEIGHT_COL <- NULL                       # NULL -> measure each .ply as an already-cut, already-
@@ -64,7 +64,7 @@ HEIGHT_COL <- NULL                       # NULL -> measure each .ply as an alrea
 OUTPUT_COL <- "Dendrometer_DendroTape_RScript_Diameter_mm"  # R's convex-hull (tape) column (distinct
                                          # from "Dendrometer_DabItsme_ConcaveHull_RScript_Diameter_mm",
                                          # which is ITSMe's concave functional diameter -- a DIFFERENT method)
-PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working/Polished_Slices_ply"  # already-cut, polished discs
+PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working_Steps/5_PolishedSlices"  # step 5 output: polished slices, <tag>__<Site>.ply
 PLY_FILENAME_PATTERN <- "{tree_id}__{site}.ply"  # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern
 

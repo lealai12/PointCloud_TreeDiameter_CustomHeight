@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-median_polygon_2deg.py — convex hull of a MEDIAN-RADIUS surface polygon (Python),
+bin_fixed_angle.py — convex hull of a PERCENTILE-RADIUS surface polygon (Python),
 fixed 2-degree angular bins.
 
 FIXED-DEGREE vs. FIXED-ARC-LENGTH: TWO STANDALONE VARIANTS
 ------------------------------------------------------------
-This is the original fixed-angular-bin variant of median_polygon_10mm.py, kept as
-its own script rather than folded behind a flag: scripts/median_polygon_10mm.py
+This is the original fixed-angular-bin variant of bin_mean_distance_radius.py, kept as
+its own script rather than folded behind a flag: scripts/bin_mean_distance_radius.py
 (no "_2deg" suffix) is a SEPARATE, independent script that bins by a fixed
 ARC LENGTH (default 10mm) instead of a fixed angle, because a fixed-degree
 bin covers wildly different amounts of bark depending on trunk size (2 deg is
@@ -17,7 +17,7 @@ data, not have an earlier choice silently overwritten.
 
 This script's bin width scales with object size (a constant angular bin
 covers far more arc on a large object than a small one), where
-median_polygon_10mm.py's fixed arc-length bin stays predictable across a
+bin_mean_distance_radius.py's fixed arc-length bin stays predictable across a
 wide size range. That is a real difference in behaviour, not a ranking:
 neither variant is the default and neither supersedes the other. On this
 project's own validated subset the two scored virtually identically, with
@@ -34,15 +34,18 @@ cleaned slice ring inflates the tape reading, because one bad point can BE
 a hull vertex.
 
 The fix: denoise the ring before taking the hull, not by removing points by
-hand, but by resampling it into a MEDIAN SURFACE POLYGON —
+hand, but by resampling it into a PERCENTILE SURFACE POLYGON —
 
   1. bin the slice points by angle around the ring centroid (default 2 deg
      bins),
-  2. take the MEDIAN radius within each bin (a bin's median ignores a single
-     outlier point the same way a median always ignores one bad sample; a
-     lone stray point can pull a raw convex hull outward, but it cannot pull
-     a per-bin MEDIAN outward),
-  3. connect the per-bin (angle, median-radius) vertices in angular order
+  2. take a high PERCENTILE of the radius within each bin (PERCENTILE in
+     CONFIG, default 90; 50 = the median used in the first pass). A high
+     percentile sits near the outer bark surface, where a tape rides; the
+     median sat part-way through the band of bark points and read small.
+     A bin with fewer than MIN_POINTS_PER_BIN points is treated as empty
+     (QC, counted in n_bins_sparse), so a sparse bin cannot set its own
+     radius from one or two stray points,
+  3. connect the per-bin (angle, percentile-radius) vertices in angular order
      into a closed polygon — this traces the actual trunk surface, flutes and
      all, so it is reported too (informational, NOT the primary metric — it
      is conceptually adjacent to ITSMe's concave "functional" diameter, but
@@ -54,21 +57,21 @@ hand, but by resampling it into a MEDIAN SURFACE POLYGON —
 
 This is a comparison tool, not a replacement: it exists to check whether
 "convex hull of the raw points" (dendro_tape.py) and "convex hull of the
-median-radius polygon" (this script) agree. Where they diverge, that tree's
+percentile-radius polygon" (this script) agree. Where they diverge, that tree's
 slice likely has exactly the outlier-hull-vertex problem this script is
 built to route around.
 
 Gaps: an angular bin with zero points (occlusion, or a bin narrower than the
-point spacing) has no median to report. Its radius is filled by circular
+point spacing) has no value to report. Its radius is filled by circular
 linear interpolation between the nearest populated bins on either side, so
 the polygon stays closed; `n_bins_populated` / `max_gap_deg` say how much of
 the ring is real vs interpolated, and `coverage_deg` (identical definition to
 dendro_tape.py, computed on the RAW points, not the bins) plus `max_edge_frac`
-on the final hull gate `median_hull_valid` exactly as in dendro_tape.py.
+on the final hull gate `bin_hull_valid` exactly as in dendro_tape.py.
 
-Companion R tool: scripts/median_polygon_2deg.R computes the same
-fixed-degree median-binned convex hull independently in R. Deliberately no
-shared code with dendro_tape.py/.R or fit_dab.py/dab_itsme.R (same project
+Companion R tool: scripts/bin_fixed_angle.R computes the same
+fixed-degree percentile-binned convex hull independently in R. Deliberately no
+shared code with dendro_tape.py/.R or fit_dab.py/dab_itsme_concave_hull.R (same project
 convention: two independent implementations, compared only at the results
 stage).
 
@@ -79,14 +82,14 @@ comparisons dendro_tape.py targets, not the general leaning-stem case.
 USAGE
 -----
 Cut a band at a picked height on a trunk SECTION (clouds are Y-up -> --up-axis y):
-    python median_polygon_2deg.py section.ply --tree-id 1234 --up-axis y \
-        --slice-height 2.31 --slice-thickness 0.06 --out results/median_polygon_python_2deg.csv
+    python bin_fixed_angle.py section.ply --tree-id 1234 --up-axis y \
+        --slice-height 2.31 --slice-thickness 0.06 --out results/bin_fixed_angle_py.csv
 
 Measure an already-cut thin slice/disc as-is (omit --slice-height):
-    python median_polygon_2deg.py slice.ply --tree-id 1234 --up-axis y
+    python bin_fixed_angle.py slice.ply --tree-id 1234 --up-axis y
 
 Batch a folder of *.ply (one row each):
-    python median_polygon_2deg.py slices/ --batch --up-axis y --out results/median_polygon_python_2deg.csv
+    python bin_fixed_angle.py slices/ --batch --up-axis y --out results/bin_fixed_angle_py.csv
 """
 
 from __future__ import annotations
@@ -106,17 +109,26 @@ import sys
 # script's --from-sheet batch mode against their own project. See also
 # scripts/sheet_batch.py, which this block's values get handed to.
 # =============================================================================
-SHEET_PATH = "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"  # anonymized sheet -- .ply files are named with the same anonymized codes
+SHEET_PATH = "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx"  # the working sheet; Tree_Tag matches the .ply file names
 SHEET_NAME = 0                        # tab name (string) or 0-based index (see fit_dab.py's
                                       # CONFIG for the R-side 1-based-index note)
 TREE_ID_COL = "Tree_Tag"              # column holding each tree's ID
 HEIGHT_COL = None                     # None -> measure each .ply as an already-cut, already-
                                       # polished disc (the normal workflow for this script);
                                       # set to e.g. "Y_value_Dendrometer" to cut on the fly instead
-OUTPUT_COL = "Dendrometer_MedianPolygon2deg_pythonScript_Diameter_mm"  # the 2deg (original) column
-PLY_FOLDER = "C:/Projects/LiDAR_Project/Working/Polished_Slices_ply"  # already-cut, polished discs
+OUTPUT_COL = "Dendrometer_BinFixedAngle_pythonScript_Diameter_mm"  # the fixed-angle column
+PLY_FOLDER = "C:/Projects/LiDAR_Project/Working_Steps/5_PolishedSlices"  # step 5 output: polished slices, <tag>__<Site>.ply
 PLY_FILENAME_PATTERN = "{tree_id}__{site}.ply"   # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern
+
+# ---- method settings (each is also overridable on the command line) ----
+PERCENTILE = 90                       # radius percentile taken inside each angular bin, measured
+                                      # from the ring centroid. 50 = the median (the first-pass
+                                      # method). Higher sits nearer the outer bark surface, where
+                                      # a tape rides. Chosen in advance (2026-09-22), not tuned.
+MIN_POINTS_PER_BIN = 10               # QC: a bin with fewer points than this is treated as EMPTY
+                                      # and filled from its neighbours, like a bin with no points.
+                                      # Counted in n_bins_sparse. 1 = use any bin with a point.
 
 import numpy as np
 
@@ -168,8 +180,10 @@ def max_empty_run(populated: np.ndarray) -> int:
     return best
 
 
-def median_surface_polygon(xy: np.ndarray, bin_width_deg: float) -> dict:
-    """Bin `xy` by angle about its centroid, take the median radius per bin,
+def percentile_surface_polygon(xy: np.ndarray, bin_width_deg: float,
+                               percentile: float = PERCENTILE,
+                               min_points: int = MIN_POINTS_PER_BIN) -> dict:
+    """Bin `xy` by angle about its centroid, take the PERCENTILE-th radius per bin,
     circularly interpolate empty bins, and return the closed polygon plus
     coverage diagnostics. See module docstring for the full rationale."""
     cx, cy = xy[:, 0].mean(), xy[:, 1].mean()
@@ -182,12 +196,15 @@ def median_surface_polygon(xy: np.ndarray, bin_width_deg: float) -> dict:
     bin_idx = np.clip((ang // bin_w_rad).astype(int), 0, n_bins - 1)
     bin_centers = (np.arange(n_bins) + 0.5) * bin_w_rad
 
-    med_r = np.full(n_bins, np.nan)
+    bin_r = np.full(n_bins, np.nan)
+    n_sparse = 0                                # bins with some points, but fewer than min_points
     for i in range(n_bins):
         sel = radii[bin_idx == i]
-        if sel.size:
-            med_r[i] = np.median(sel)
-    populated = ~np.isnan(med_r)
+        if sel.size >= min_points:
+            bin_r[i] = np.percentile(sel, percentile)   # numpy default = linear, same as R type 7
+        elif sel.size:
+            n_sparse += 1
+    populated = ~np.isnan(bin_r)
     n_populated = int(populated.sum())
     if n_populated == 0:
         raise ValueError("no populated angular bins — slice has too few/too "
@@ -198,7 +215,7 @@ def median_surface_polygon(xy: np.ndarray, bin_width_deg: float) -> dict:
     # the 0/2*pi seam, then fill every bin center (populated bins interpolate
     # back to their own exact value at zero distance).
     pop_ang = bin_centers[populated]
-    pop_r = med_r[populated]
+    pop_r = bin_r[populated]
     order = np.argsort(pop_ang)
     pop_ang, pop_r = pop_ang[order], pop_r[order]
     ext_ang = np.concatenate([pop_ang - 2 * math.pi, pop_ang, pop_ang + 2 * math.pi])
@@ -212,6 +229,7 @@ def median_surface_polygon(xy: np.ndarray, bin_width_deg: float) -> dict:
         "poly_xy": poly_xy,
         "n_bins": n_bins,
         "n_bins_populated": n_populated,
+        "n_bins_sparse": n_sparse,
         "max_gap_deg": round(max_gap_deg, 1),
     }
 
@@ -225,7 +243,7 @@ def polygon_perimeter_m(loop_xy: np.ndarray) -> float:
 
 def convex_hull_tape(xy: np.ndarray) -> dict:
     """Convex-hull perimeter of `xy` = the taut-tape wrap (same construction as
-    dendro_tape.py's taut_band, reused here on the MEDIAN POLYGON's vertices
+    dendro_tape.py's taut_band, reused here on the PERCENTILE POLYGON's vertices
     rather than on the raw slice points)."""
     h = ConvexHull(xy)
     loop = xy[h.vertices]
@@ -272,16 +290,16 @@ def plane_xy_to_3d(xy: np.ndarray, up_val: float, up_idx: int, plane_idx: list[i
 def write_polygon_bundle(poly_dir: str, tree_id: str, poly_xy: np.ndarray,
                          hull_loop_xy: np.ndarray, up_val: float, up_idx: int,
                          plane_idx: list[int]) -> None:
-    """Write <tree_id>_median_polygon_2deg_py.ply (cyan, the median-binned surface
-    polygon) and <tree_id>_median_hull_2deg_py.ply (magenta, its convex hull) into
-    poly_dir, for loading in CloudCompare beside the original disc/slice. `_2deg`
-    keeps these from colliding with median_polygon_10mm.py's `_10mm`-suffixed output
+    """Write <tree_id>_bin_polygon_fixed_angle_py.ply (cyan, the percentile-binned surface
+    polygon) and <tree_id>_bin_hull_fixed_angle_py.ply (magenta, its convex hull) into
+    poly_dir, for loading in CloudCompare beside the original disc/slice. `_fixed_angle`
+    keeps these from colliding with bin_mean_distance_radius.py's `_mean_distance_radius` output
     when both variants are pointed at the same folder."""
     os.makedirs(poly_dir, exist_ok=True)
     poly_closed = np.vstack([poly_xy, poly_xy[0]])
-    write_ply_xyzrgb(os.path.join(poly_dir, f"{tree_id}_median_polygon_2deg_py.ply"),
+    write_ply_xyzrgb(os.path.join(poly_dir, f"{tree_id}_bin_polygon_fixed_angle_py.ply"),
                      plane_xy_to_3d(poly_closed, up_val, up_idx, plane_idx), (0, 200, 200))
-    write_ply_xyzrgb(os.path.join(poly_dir, f"{tree_id}_median_hull_2deg_py.ply"),
+    write_ply_xyzrgb(os.path.join(poly_dir, f"{tree_id}_bin_hull_fixed_angle_py.ply"),
                      plane_xy_to_3d(hull_loop_xy, up_val, up_idx, plane_idx), (200, 0, 200))
 
 
@@ -293,13 +311,14 @@ MAX_EDGE_FRAC = 0.5
 def analyze_slice(path: str, tree_id: str | None, up_axis: str = "y",
                   slice_height: float | None = None, slice_thickness: float = 0.06,
                   bin_width_deg: float = 2.0, min_coverage: float = 270.0,
+                  percentile: float = PERCENTILE, min_points: int = MIN_POINTS_PER_BIN,
                   poly_dir: str | None = None) -> dict:
     xyz = load_xyz(path)
 
     up_idx = {"x": 0, "y": 1, "z": 2}[up_axis]
     plane_idx = [i for i in (0, 1, 2) if i != up_idx]
 
-    # Same band-cutting convention as fit_dab.py / dendro_tape.py / dab_itsme.R:
+    # Same band-cutting convention as fit_dab.py / dendro_tape.py / dab_itsme_concave_hull.R:
     # [h - t/2, h + t/2] along the up-axis. Omit --slice-height for a pre-cut slice.
     if slice_height is not None:
         coord = xyz[:, up_idx]
@@ -316,9 +335,9 @@ def analyze_slice(path: str, tree_id: str | None, up_axis: str = "y",
     xy = xyz[:, plane_idx]
     cov = angular_coverage_deg(xy)
 
-    poly = median_surface_polygon(xy, bin_width_deg)
+    poly = percentile_surface_polygon(xy, bin_width_deg, percentile, min_points)
     poly_xy = poly["poly_xy"]
-    median_poly_per_m = polygon_perimeter_m(poly_xy)
+    bin_poly_per_m = polygon_perimeter_m(poly_xy)
     hull = convex_hull_tape(poly_xy)
 
     valid = (cov >= min_coverage) and (hull["max_edge_frac"] <= MAX_EDGE_FRAC)
@@ -338,22 +357,25 @@ def analyze_slice(path: str, tree_id: str | None, up_axis: str = "y",
         "bin_width_deg": bin_width_deg,
         "n_bins": poly["n_bins"],
         "n_bins_populated": poly["n_bins_populated"],
+        "n_bins_sparse": poly["n_bins_sparse"],
+        "percentile": percentile,
+        "min_points_per_bin": min_points,
         "max_gap_deg": poly["max_gap_deg"],
         "coverage_deg": round(cov, 1),
         "max_edge_frac": round(hull["max_edge_frac"], 3),
-        "median_polygon_circumference_cm": round(100 * median_poly_per_m, 2),
-        "median_polygon_diameter_cm": round(100 * median_poly_per_m / math.pi, 2),
-        "median_hull_circumference_cm": round(hull["circumference_cm"], 2),
-        "median_hull_equiv_diameter_cm": round(hull["equiv_diameter_cm"], 2),
-        "median_hull_valid": bool(valid),
+        "bin_polygon_circumference_cm": round(100 * bin_poly_per_m, 2),
+        "bin_polygon_diameter_cm": round(100 * bin_poly_per_m / math.pi, 2),
+        "bin_hull_circumference_cm": round(hull["circumference_cm"], 2),
+        "bin_hull_equiv_diameter_cm": round(hull["equiv_diameter_cm"], 2),
+        "bin_hull_valid": bool(valid),
     }
 
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Convex hull of a median-radius surface polygon on a trunk slice, "
+        description="Convex hull of a percentile-radius surface polygon on a trunk slice, "
                     "fixed 2-degree angular bins (denoised alternative to dendro_tape.py's "
-                    "raw-point hull; see median_polygon_10mm.py for the fixed-arc-length variant).")
+                    "raw-point hull; see bin_mean_distance_radius.py for the fixed-arc-length variant).")
     ap.add_argument("path", nargs="?", default=None,
                     help="A .ply slice/section, or a folder (with --batch). Not used with --from-sheet.")
     ap.add_argument("--batch", action="store_true", help="Treat path as a folder of *.ply.")
@@ -374,15 +396,19 @@ def main():
     ap.add_argument("--slice-thickness", type=float, default=0.06,
                     help="Band thickness for --slice-height (m, default 0.06).")
     ap.add_argument("--bin-width-deg", type=float, default=2.0,
-                    help="Angular bin width for the median surface polygon (deg, "
+                    help="Angular bin width for the percentile surface polygon (deg, "
                          "default 2.0 = 180 bins).")
     ap.add_argument("--min-coverage", type=float, default=270.0,
                     help="Min angular coverage (deg) for a trustworthy wrap "
-                         "(default 270). Below this, median_hull_valid=False.")
+                         "(default 270). Below this, bin_hull_valid=False.")
     ap.add_argument("--out", default=None, help="CSV to write/append results to.")
+    ap.add_argument("--percentile", type=float, default=PERCENTILE,
+                    help=f"Radius percentile taken in each bin (default {PERCENTILE}; 50 = median).")
+    ap.add_argument("--min-points", type=int, default=MIN_POINTS_PER_BIN,
+                    help=f"Bins with fewer points are filled from neighbours (default {MIN_POINTS_PER_BIN}).")
     ap.add_argument("--poly-dir", default=None,
-                    help="If set, write <tree_id>_median_polygon_2deg_py.ply (cyan) and "
-                         "<tree_id>_median_hull_2deg_py.ply (magenta) per slice under this "
+                    help="If set, write <tree_id>_bin_polygon_fixed_angle_py.ply (cyan) and "
+                         "<tree_id>_bin_hull_fixed_angle_py.ply (magenta) per slice under this "
                          "folder, for loading in CloudCompare beside the original disc.")
     args = ap.parse_args()
 
@@ -404,18 +430,19 @@ def main():
             try:
                 row = analyze_slice(m["path"], m["tree_id"], args.up_axis, m["height"],
                                     args.slice_thickness, args.bin_width_deg, args.min_coverage,
+                                    args.percentile, args.min_points,
                                     args.poly_dir)
                 rows.append(row)
-                flag = "" if row["median_hull_valid"] else "  ** PARTIAL RING — hull invalid **"
+                flag = "" if row["bin_hull_valid"] else "  ** PARTIAL RING — hull invalid **"
                 print(f"{row['tree_id']:<14} "
-                      f"C_medhull={row['median_hull_circumference_cm']:.1f} cm  "
-                      f"(C/pi diam={row['median_hull_equiv_diameter_cm']:.1f} cm)  "
-                      f"C_medpoly={row['median_polygon_circumference_cm']:.1f} cm  "
+                      f"C_binhull={row['bin_hull_circumference_cm']:.1f} cm  "
+                      f"(C/pi diam={row['bin_hull_equiv_diameter_cm']:.1f} cm)  "
+                      f"C_binpoly={row['bin_polygon_circumference_cm']:.1f} cm  "
                       f"cov={row['coverage_deg']:.0f}deg  "
                       f"bins={row['n_bins_populated']}/{row['n_bins']}{flag}")
-                if row["median_hull_valid"]:
+                if row["bin_hull_valid"]:
                     # whole mm at the sheet only: the field readings are integer mm. CSV keeps full precision.
-                    updates.append((m["row"], int(round(row["median_hull_equiv_diameter_cm"] * 10))))
+                    updates.append((m["row"], int(round(row["bin_hull_equiv_diameter_cm"] * 10))))
                 else:
                     print(f"[skip write-back] {m['tree_id']}: hull invalid (partial ring), "
                           "no diameter to write", file=sys.stderr)
@@ -434,13 +461,14 @@ def main():
             try:
                 row = analyze_slice(f, args.tree_id, args.up_axis, args.slice_height,
                                     args.slice_thickness, args.bin_width_deg, args.min_coverage,
+                                    args.percentile, args.min_points,
                                     args.poly_dir)
                 rows.append(row)
-                flag = "" if row["median_hull_valid"] else "  ** PARTIAL RING — hull invalid **"
+                flag = "" if row["bin_hull_valid"] else "  ** PARTIAL RING — hull invalid **"
                 print(f"{row['tree_id']:<14} "
-                      f"C_medhull={row['median_hull_circumference_cm']:.1f} cm  "
-                      f"(C/pi diam={row['median_hull_equiv_diameter_cm']:.1f} cm)  "
-                      f"C_medpoly={row['median_polygon_circumference_cm']:.1f} cm  "
+                      f"C_binhull={row['bin_hull_circumference_cm']:.1f} cm  "
+                      f"(C/pi diam={row['bin_hull_equiv_diameter_cm']:.1f} cm)  "
+                      f"C_binpoly={row['bin_polygon_circumference_cm']:.1f} cm  "
                       f"cov={row['coverage_deg']:.0f}deg  "
                       f"bins={row['n_bins_populated']}/{row['n_bins']}{flag}")
             except Exception as e:

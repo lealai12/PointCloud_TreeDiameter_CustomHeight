@@ -6,9 +6,10 @@ number as this script, plus a gap check this script lacks (on the first-pass sli
 rejected 6 of 32 rings this script accepted). OUTPUT_COL is disabled below so this file
 can never write to the sheet. Kept as the record.
 
-measure_slice.py -- Step 08: measure an already-cut, already-polished slice.
+measure_slice.py -- RETIRED. Measured an already-cut, already-polished slice
+at what is now Step 06.
 
-Given a thin trunk cross-section exported as a point cloud (Step 07's
+Given a thin trunk cross-section exported as a point cloud (the polished
 Polished_Slices_ply/<tag>__<Site>.ply), this:
   1. (optional) corrects for stem lean by rotating the slice so the stem axis = Z,
   2. fits a least-squares circle (Kasa) -> best-fit diameter,
@@ -16,8 +17,8 @@ Polished_Slices_ply/<tag>__<Site>.ply), this:
   4. reports fit quality (RMS residual, angular coverage) so bad slices are flagged.
 
 This script NEVER cuts. The file it is given is treated as the cross-section,
-whole. Cutting a band out of a trunk section is Step05_CutSlice/cut_slice.py's
-job; polishing that band is Step 06, by hand in CloudCompare.
+whole. Cutting a band out of a trunk section is Step04_CutSlices/cut_slice.py's
+job; polishing that band is Step 05, by hand in CloudCompare.
 
 Intended for trunks where a normal tape/DBH reading isn't reliable at the
 usual measurement height -- buttressed, fluted, or otherwise irregular
@@ -382,7 +383,7 @@ def analyze_slice(path: str, tree_id: str | None, dab_height: float | None,
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Step 08: measure an already-cut, polished trunk slice.")
+    ap = argparse.ArgumentParser(description="RETIRED: measure an already-cut, polished trunk slice.")
     ap.add_argument("path", nargs="?", default=None,
                     help="A .ply slice, or a folder (with --batch). Not used with --from-sheet.")
     ap.add_argument("--batch", action="store_true", help="Treat path as a folder of *.ply.")

@@ -70,14 +70,14 @@ acc <- raw %>%
     ForestScanner         = num(Dendrometer_ForestScanner_Diameter_mm),
     Python_true_hull      = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
     R                     = num(Dendrometer_DabItsme_ConcaveHull_RScript_Diameter_mm),
-    median_hull_2Degrees  = num(Dendrometer_MedianPolygon2deg_pythonScript_Diameter_mm),
-    median_hull_10mm      = num(Dendrometer_MedianPolygon10mm_pythonScript_Diameter_mm)
+    bin_hull_FixedAngle  = num(Dendrometer_BinFixedAngle_pythonScript_Diameter_mm),
+    bin_hull_MeanDistanceRadius      = num(Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm)
   ) %>%
   filter(!is.na(reading)) %>%
   mutate(size = if_else(has_dendrometer == "Yes", "DBH (dendrometer)", "DAB (above buttress)"))
 
 long <- acc %>%
-  pivot_longer(c(ForestScanner, Python_true_hull, R, median_hull_2Degrees, median_hull_10mm),
+  pivot_longer(c(ForestScanner, Python_true_hull, R, bin_hull_FixedAngle, bin_hull_MeanDistanceRadius),
                names_to = "method", values_to = "est") %>%
   filter(!is.na(est)) %>%
   mutate(err   = est - reading,

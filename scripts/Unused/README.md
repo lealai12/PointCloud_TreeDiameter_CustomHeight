@@ -1,6 +1,18 @@
 # Unused
 
-**Nothing in this folder is part of the workflow. A future user should not run any of it.** The three files are kept for two different reasons.
+**Nothing in this folder is part of the workflow. A future user should not run any of it.** The files are kept for three different reasons: one script was superseded, two were never run, and one is the mistake the workflow was built to avoid.
+
+## `measure_slice.py` / `measure_slice.R` — retired, superseded by `dendro_tape`
+
+Retired **2026-09-21**. These measured a polished slice with a least-squares circle fit plus a convex-hull "tape" perimeter, and they produced this project's first-pass numbers.
+
+`dendro_tape.py` / `dendro_tape.R` now do that job, and do it better:
+
+- **Same number.** The convex-hull diameter is identical — 0.0000 mm apart on all 32 first-pass slices.
+- **Plus a gap check.** `dendro_tape` rejects a ring whose largest hull edge chords across a gap too wide to tape. It rejected 6 of the 32 rings `measure_slice` accepted: `2033__TopFlag`, `4524__LowerFlag`, `5213__LowerFlag`, `5926__LowerFlag`, `6647__LowerFlag`, `7163__LowerFlag`.
+- **Same pictures.** `dendro_tape` gained `--viz-dir`, writing the same bundle (fit PNG, slice cloud, hull/circle overlay PLYs, `measure.txt`), and draws a rejected ring's long edge in magenta labelled **PARTIAL RING**.
+
+They are kept as the record of what produced the first-pass results. `OUTPUT_COL` is set to `None` / `NULL` in both, so neither can write to the sheet even if run. Their measurement code is a copy of `fit_dab.*`, which stays at the `scripts/` root for the same reason.
 
 ## `loopclose.py` / `loopclose.R` — never run, produced nothing
 

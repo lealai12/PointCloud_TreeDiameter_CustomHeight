@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 sheet_batch.py -- shared spreadsheet-driven batch-run helper for the
-per-.ply measurement scripts (fit_dab.py, dendro_tape.py, median_polygon_10mm.py,
-median_polygon_2deg.py).
+per-.ply measurement scripts (fit_dab.py, dendro_tape.py, bin_mean_distance_radius.py,
+bin_fixed_angle.py).
 
 WHY THIS EXISTS
 ----------------

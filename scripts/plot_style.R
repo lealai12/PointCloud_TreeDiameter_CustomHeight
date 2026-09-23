@@ -2,7 +2,7 @@
 # plot_style.R -- shared method vocabulary/colour/shape lookup for
 # results/plots/*.png, sourced by validate_field_accuracy.R,
 # compare_hull_methods.R and plot_error_by_size.R so a colour and a name mean
-# the same thing in every figure. (build_median_hull_2deg_demo.R does not
+# the same thing in every figure. (bin_fixed_angle_demo.R does not
 # source this -- it colours by SITE, not by method, and defines its own scale.) Revised 2026-08-02 per the plot-cleanup spec ("one method
 # vocabulary everywhere" / "one colour per method, fixed across figures").
 #
@@ -26,22 +26,22 @@ METHOD_LABELS <- c(
   R                        = "ITSMe concave hull",
   true_hull                = "Convex hull",
   Python_true_hull         = "Convex hull",
-  median_hull_2Degrees     = "Median hull, 2°",
-  Python_median_hull       = "Median hull, 2°",
-  median_hull_10mm         = "Median hull, 10 mm",
-  Python_median_hull_10mm  = "Median hull, 10 mm"
+  bin_hull_FixedAngle     = "Binned hull, fixed angle",
+  Python_bin_hull_FixedAngle       = "Binned hull, fixed angle",
+  bin_hull_MeanDistanceRadius         = "Binned hull, mean-distance radius",
+  Python_bin_hull_MeanDistanceRadius  = "Binned hull, mean-distance radius"
 )
 
 # canonical legend/plot order -- identical across every figure
-METHOD_ORDER <- c("ForestScanner (in-app)", "Convex hull", "Median hull, 2°",
-                   "Median hull, 10 mm", "ITSMe concave hull")
+METHOD_ORDER <- c("ForestScanner (in-app)", "Convex hull", "Binned hull, fixed angle",
+                   "Binned hull, mean-distance radius", "ITSMe concave hull")
 
 # Okabe-Ito colourblind-safe palette, one fixed colour per method
 METHOD_COLORS <- c(
   "ForestScanner (in-app)" = "#E69F00",
   "Convex hull"            = "#0072B2",
-  "Median hull, 2°"        = "#009E73",
-  "Median hull, 10 mm"     = "#CC79A7",
+  "Binned hull, fixed angle"        = "#009E73",
+  "Binned hull, mean-distance radius"     = "#CC79A7",
   "ITSMe concave hull"     = "#D55E00"
 )
 
@@ -50,8 +50,8 @@ METHOD_COLORS <- c(
 METHOD_SHAPES <- c(
   "ForestScanner (in-app)" = 15,  # filled square
   "Convex hull"            = 16,  # filled circle
-  "Median hull, 2°"        = 17,  # filled triangle
-  "Median hull, 10 mm"     = 18,  # filled diamond
+  "Binned hull, fixed angle"        = 17,  # filled triangle
+  "Binned hull, mean-distance radius"     = 18,  # filled diamond
   "ITSMe concave hull"     = 8    # star
 )
 

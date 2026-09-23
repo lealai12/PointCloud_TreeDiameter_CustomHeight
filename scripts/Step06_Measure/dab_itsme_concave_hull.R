@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # =============================================================================
-# dab_itsme.R  --  second, independent trunk-diameter estimate via the ITSMe R package.
+# dab_itsme_concave_hull.R  --  second, independent trunk-diameter estimate via the ITSMe R package.
 #
 # Companion to scripts/fit_dab.py: every trunk cross-section is worth measuring
 # BOTH ways, with independent code, so the two estimates can be compared
@@ -16,7 +16,7 @@
 #      swaps the axes internally. Without --up-axis y this script defaults to
 #      z and will slice the wrong axis (see the --up-axis default below).
 #   3. Run BOTH tools on that section at that height, same slice thickness:
-#        Rscript scripts/dab_itsme.R <section.ply> --tree-id 1234 --up-axis y \
+#        Rscript scripts/dab_itsme_concave_hull.R <section.ply> --tree-id 1234 --up-axis y \
 #                --height-z 2.31 --thickness 0.06 --out results/dab_itsme_results.csv
 #        python  scripts/fit_dab.py ... (matching height/thickness)
 #
@@ -80,7 +80,7 @@ path       <- if (length(positional)) positional[1] else NA
 
 from_sheet <- has_flag("--from-sheet")
 if (is.na(path) && !from_sheet) {
-  stop("Usage: Rscript dab_itsme.R <section.ply> --height-z <Z_metres> ",
+  stop("Usage: Rscript dab_itsme_concave_hull.R <section.ply> --height-z <Z_metres> ",
        "[--tree-id id] [--thickness 0.06] [--out results/dab_itsme_results.csv] ",
        "| --from-sheet (batch-run using the CONFIG block at the top of this file)")
 }

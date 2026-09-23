@@ -6,7 +6,7 @@
 # Takes a whole trunk section (Step 04's Final_Disc_ply/<tag>.ply), the
 # picked measurement height (a coordinate along --up-axis; on ForestScanner
 # clouds that is a Y value) and a band thickness, and cuts the band
-# [height - t/2, height + t/2] -- the same window dab_itsme.R uses. With
+# [height - t/2, height + t/2] -- the same window dab_itsme_concave_hull.R uses. With
 # --viz-dir it writes the raw band out as a bundle (slice cloud + fit PNG +
 # circle/hull overlay PLYs + measure.txt) for the polishing step.
 #
@@ -83,8 +83,8 @@ HEIGHT_COL <- "Y_value_Dendrometer"      # column holding the picked cut height 
 OUTPUT_COL <- NULL                       # NULL -> writes nothing. To log the raw-band (ceiling) reading,
                                          # add a "<Site>_CutSlice_RScript_Diameter_mm" column to the sheet
                                          # and name it here (the Python twin writes ..._pythonScript_...).
-PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working/Final_Disc_ply"  # whole trunk SECTIONS, not pre-cut discs
-PLY_FILENAME_PATTERN <- "{tree_id}.ply"  # {tree_id} required; {site} optional (see SITE_LABEL)
+PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working_Steps/3_CleanedSegments_Final"  # step 3 output: the cleaned trunk SECTIONS
+PLY_FILENAME_PATTERN <- "{tree_id}_CleanedSegment.ply"  # step 3 naming, e.g. "2033_CleanedSegment.ply" (after the Working_Steps rename)
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern, if used
 OUTPUT_DIR <- "C:/Projects/LiDAR_Project/Working_Steps/4_CutSlices"  # where every cut band goes (one subfolder per tree-site);
                                          # used whenever --viz-dir is not given on the command line
@@ -326,7 +326,7 @@ measure_one <- function(path, tree_id, up_axis, dab_height, slice_height,
   up_idx <- match(up_axis, c("x", "y", "z"))
 
   # Height-slice mode: `path` is a whole trunk SECTION, not a pre-cut ring.
-  # Cut a band centred on the picked height, matching dab_itsme.R/dendro_tape.R's
+  # Cut a band centred on the picked height, matching dab_itsme_concave_hull.R/dendro_tape.R's
   # window [h - t/2, h + t/2]. Omit --slice-height and `path` is treated as an
   # already-cut slice (e.g. a thin disc that is itself the cross-section).
   if (!is.na(slice_height)) {

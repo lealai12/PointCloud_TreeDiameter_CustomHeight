@@ -5,7 +5,7 @@
 # compare three diameter estimates
 #   - ForestScanner  (iPhone app, Dendrometer_ForestScanner_Diameter_mm)
 #   - Python hull    (fit_dab.py convex-hull equiv diameter)
-#   - R functional   (dab_itsme.R ITSMe concave-hull diameter)
+#   - R functional   (dab_itsme_concave_hull.R ITSMe concave-hull diameter)
 # against the field ground truth (Dendrometer_FieldDiameter, mm).
 #
 # Run in TWO scopes:

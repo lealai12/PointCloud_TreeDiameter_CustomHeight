@@ -69,7 +69,7 @@ import numpy as np
 # script's --from-sheet batch mode against their own project. See also
 # scripts/sheet_batch.py, which this block's values get handed to.
 # =============================================================================
-SHEET_PATH = "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"  # anonymized sheet -- .ply files are named with the same anonymized codes
+SHEET_PATH = "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx"  # the working sheet; Tree_Tag matches the .ply file names
 SHEET_NAME = 0                        # tab name (string) or 0-based index (see fit_dab.py's
                                       # CONFIG for the R-side 1-based-index note)
 TREE_ID_COL = "Tree_Tag"              # column holding each tree's ID
@@ -81,7 +81,7 @@ OUTPUT_COL = "Dendrometer_DendroTape_pythonScript_Diameter_mm"  # this script's 
                                       # with fit_dab.py/measure_slice.py -- same hull number -- but
                                       # measure_slice.py has no gap check, so it is retired and
                                       # this script now owns the Python convex-hull column.)
-PLY_FOLDER = "C:/Projects/LiDAR_Project/Working/Polished_Slices_ply"  # already-cut, polished discs
+PLY_FOLDER = "C:/Projects/LiDAR_Project/Working_Steps/5_PolishedSlices"  # step 5 output: polished slices, <tag>__<Site>.ply
 PLY_FILENAME_PATTERN = "{tree_id}__{site}.ply"   # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern
 

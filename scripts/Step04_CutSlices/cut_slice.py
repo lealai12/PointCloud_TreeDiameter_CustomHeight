@@ -5,7 +5,7 @@ cut_slice.py -- Step 05: cut a thin band at a picked height on a trunk SECTION.
 Takes a whole trunk section (Step 04's Final_Disc_ply/<tag>.ply), the picked
 measurement height (a coordinate along --up-axis; on ForestScanner clouds
 that is a Y value), and a band thickness, and cuts the band
-[height - t/2, height + t/2] -- the same window dab_itsme.R uses. With
+[height - t/2, height + t/2] -- the same window dab_itsme_concave_hull.R uses. With
 --viz-dir it writes the raw band out as a bundle (slice cloud + fit PNG +
 circle/hull overlay PLYs + measure.txt) for the polishing step.
 
@@ -87,8 +87,8 @@ HEIGHT_COL = "Y_value_Dendrometer"    # column holding the picked cut height (m)
                                       # Y_value_TopFlag / Y_value_LowerFlag for those sites
 OUTPUT_COL = "Dendrometer_CutSlice_pythonScript_Diameter_mm"  # the raw-band (ceiling) reading, whole mm;
                                       # swap the site prefix to match SITE_LABEL. Set to None to write nothing.
-PLY_FOLDER = "C:/Projects/LiDAR_Project/Working/Final_Disc_ply"  # whole trunk SECTIONS, not pre-cut discs
-PLY_FILENAME_PATTERN = "{tree_id}.ply"   # {tree_id} required; {site} optional (see SITE_LABEL)
+PLY_FOLDER = "C:/Projects/LiDAR_Project/Working_Steps/3_CleanedSegments_Final"  # step 3 output: the cleaned trunk SECTIONS
+PLY_FILENAME_PATTERN = "{tree_id}_CleanedSegment.ply"   # step 3 naming, e.g. "2033_CleanedSegment.ply" (after the Working_Steps rename)
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern, if used
 OUTPUT_DIR = "C:/Projects/LiDAR_Project/Working_Steps/4_CutSlices"  # where every cut band goes (one subfolder per tree-site);
                                       # used whenever --viz-dir is not given on the command line
@@ -331,7 +331,7 @@ def analyze_slice(path: str, tree_id: str | None, dab_height: float | None,
 
     # Height-slice mode: `path` is a whole trunk SECTION, not a pre-cut ring.
     # Cut a band centred on the picked height (coord along the up-axis), matching
-    # ITSMe's diameter_slice_pc window [h - t/2, h + t/2] so dab_itsme.R and
+    # ITSMe's diameter_slice_pc window [h - t/2, h + t/2] so dab_itsme_concave_hull.R and
     # fit_dab.py measure the SAME band. Omit --slice-height and `path` is treated
     # as an already-cut slice (e.g. a thin disc that is itself the cross-section).
     if slice_height is not None:
@@ -415,11 +415,11 @@ def main():
                          "in the other two. Default 'z' (standard Z-up).")
     ap.add_argument("--slice-height", type=float, default=None,
                     help="The picked measurement height: a coordinate along --up-axis (m). "
-                         "The band [h - t/2, h + t/2] is cut here, matching ITSMe/dab_itsme.R. "
+                         "The band [h - t/2, h + t/2] is cut here, matching ITSMe/dab_itsme_concave_hull.R. "
                          "REQUIRED unless --from-sheet supplies it from HEIGHT_COL.")
     ap.add_argument("--slice-thickness", type=float, default=0.06,
                     help="Band thickness for --slice-height (m, default 0.06). Match the "
-                         "--thickness passed to dab_itsme.R so both tools cut the same band.")
+                         "--thickness passed to dab_itsme_concave_hull.R so both tools cut the same band.")
     ap.add_argument("--out", default=None, help="CSV to write/append results to.")
     ap.add_argument("--axis-ply", default=None,
                     help="Optional tall trunk-segment PLY used to estimate the stem "

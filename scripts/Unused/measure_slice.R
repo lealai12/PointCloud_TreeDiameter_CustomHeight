@@ -5,10 +5,10 @@
 # rejected 6 of 32 rings this script accepted). OUTPUT_COL is disabled below so this file
 # can never write to the sheet. Kept as the record.
 # =============================================================================
-# measure_slice.R -- Step 08: measure an already-cut, already-polished slice.
-# Independent R twin of Step08_Measure/measure_slice.py.
+# measure_slice.R -- RETIRED. Measured an already-cut, already-polished slice
+# at what is now Step 06. Independent R twin of Unused/measure_slice.py.
 #
-# Given a thin trunk cross-section (Step 07's Polished_Slices_ply/
+# Given a thin trunk cross-section (the polished slice from Step 05,
 # <tag>__<Site>.ply): least-squares (Kasa) circle fit + convex-hull "tape"
 # perimeter (circumference, and equivalent diameter = C/pi), optional
 # PCA-based lean correction, coverage/RMS confidence flag, and the --viz-dir
@@ -17,7 +17,7 @@
 #
 # This script NEVER cuts. The file it is given is treated as the
 # cross-section, whole. Cutting a band out of a trunk section is
-# Step05_CutSlice/cut_slice.R's job; polishing that band is Step 06, by hand
+# Step04_CutSlices/cut_slice.R's job; polishing that band is Step 05, by hand
 # in CloudCompare.
 #
 # dab_itsme.R is a SEPARATE thing: a different METHOD (ITSMe's own circle +
@@ -36,7 +36,7 @@
 # USAGE
 # -----
 # One slice (clouds are Y-up -> --up-axis y):
-#   Rscript scripts/Step08_Measure/measure_slice.R slice.ply --tree-id 1234__Dendrometer --up-axis y
+#   Rscript scripts/Unused/measure_slice.R slice.ply --tree-id 1234__Dendrometer --up-axis y
 # Whole folder of slices: --batch (path is a folder, one row per *.ply).
 # Every row in the sheet (CONFIG below), written back into OUTPUT_COL: --from-sheet.
 # Lean correction on a leaning stem: --axis-ply <tall_segment.ply> (a TALL
