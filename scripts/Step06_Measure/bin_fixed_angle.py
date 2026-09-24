@@ -120,6 +120,10 @@ OUTPUT_COL = "Dendrometer_BinFixedAngle_pythonScript_Diameter_mm"  # the fixed-a
 PLY_FOLDER = "C:/Projects/LiDAR_Project/Working_Steps/5_PolishedSlices"  # step 5 output: polished slices, <tag>__<Site>.ply
 PLY_FILENAME_PATTERN = "{tree_id}__{site}.ply"   # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern
+FLAG_COL = "Dendrometer_BinFixedAngle_MaxEdgeFrac"   # the gap check, as a NUMBER, not a veto: longest hull
+                                      # edge / equivalent diameter. > MAX_EDGE_FRAC (0.5) is
+                                      # the flag, but the diameter is written either way so the
+                                      # threshold can be revisited in analysis. None to skip.
 
 # ---- method settings (each is also overridable on the command line) ----
 PERCENTILE = 90                       # radius percentile taken inside each angular bin, measured
@@ -414,11 +418,13 @@ def main():
 
     rows = []
     updates = []   # (sheet_row, value_mm) pairs -- only populated in --from-sheet mode
+    flag_updates = []   # (sheet_row, max_edge_frac) pairs -> FLAG_COL
 
     if args.from_sheet:
         # sheet_batch.py lives at the scripts/ root, one level up from this
         # Step folder -- put it on the import path before importing it.
         sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from dataclasses import replace
         from sheet_batch import SheetConfig, load_manifest, write_back_all
         cfg = SheetConfig(sheet_path=SHEET_PATH, tree_id_col=TREE_ID_COL, ply_folder=PLY_FOLDER,
                           ply_filename_pattern=PLY_FILENAME_PATTERN, site_label=SITE_LABEL,
@@ -440,15 +446,20 @@ def main():
                       f"C_binpoly={row['bin_polygon_circumference_cm']:.1f} cm  "
                       f"cov={row['coverage_deg']:.0f}deg  "
                       f"bins={row['n_bins_populated']}/{row['n_bins']}{flag}")
-                if row["bin_hull_valid"]:
-                    # whole mm at the sheet only: the field readings are integer mm. CSV keeps full precision.
-                    updates.append((m["row"], int(round(row["bin_hull_equiv_diameter_cm"] * 10))))
-                else:
-                    print(f"[skip write-back] {m['tree_id']}: hull invalid (partial ring), "
-                          "no diameter to write", file=sys.stderr)
+                # The gap check FLAGS, it does not block: write the diameter either way
+                # and record max_edge_frac alongside it (see FLAG_COL).
+                # whole mm at the sheet only: the field readings are integer mm.
+                updates.append((m["row"], int(round(row["bin_hull_equiv_diameter_cm"] * 10))))
+                flag_updates.append((m["row"], round(float(row["max_edge_frac"]), 3)))
+                if not row["bin_hull_valid"]:
+                    print(f"[flagged] {m['tree_id']}: partial ring "
+                          f"(max_edge_frac={row['max_edge_frac']:.3f}) -- written, but check it",
+                          file=sys.stderr)
             except Exception as e:
                 print(f"[skip] {m['tree_id']}: {e}", file=sys.stderr)
         write_back_all(cfg, updates)
+        if FLAG_COL and flag_updates:
+            write_back_all(replace(cfg, output_col=FLAG_COL), flag_updates)
     else:
         if not args.path:
             ap.error("path is required unless --from-sheet is given.")

@@ -67,6 +67,10 @@ OUTPUT_COL <- "Dendrometer_DendroTape_RScript_Diameter_mm"  # R's convex-hull (t
 PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working_Steps/5_PolishedSlices"  # step 5 output: polished slices, <tag>__<Site>.ply
 PLY_FILENAME_PATTERN <- "{tree_id}__{site}.ply"  # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern
+FLAG_COL <- "Dendrometer_DendroTape_MaxEdgeFrac"  # the gap check, as a NUMBER, not a veto:
+                                         # longest hull edge / equivalent diameter. > MAX_EDGE_FRAC
+                                         # (0.5) is the flag, but the diameter is written either way
+                                         # so the threshold can be revisited in analysis. NULL to skip.
 
 # ------------------------------------------------------------------ CLI parsing
 # Base-R flag parser: a positional <path> plus --tree-id --up-axis --height
@@ -299,14 +303,20 @@ if (from_sheet) {
     if (is.null(result)) next
     rows[[length(rows) + 1]] <- result
     report_row(result)
-    if (isTRUE(result$tape_valid)) {
-      # whole mm at the sheet only: the field readings are integer mm. CSV keeps full precision.
-      updates[[length(updates) + 1]] <- list(row = m$row, value = round(result$tape_equiv_diameter_cm * 10))
-    } else {
-      cat(sprintf("[skip write-back] %s: tape invalid (partial ring), nothing to write\n", m$tree_id))
+    # The gap check FLAGS, it does not block: write the diameter either way and
+    # record max_edge_frac alongside it (see FLAG_COL).
+    # whole mm at the sheet only: the field readings are integer mm. CSV keeps full precision.
+    updates[[length(updates) + 1]] <- list(row = m$row, value = round(result$tape_equiv_diameter_cm * 10))
+    flag_updates[[length(flag_updates) + 1]] <- list(row = m$row, value = round(result$max_edge_frac, 3))
+    if (!isTRUE(result$tape_valid)) {
+      cat(sprintf("[flagged] %s: partial ring (max_edge_frac=%.3f) -- written, but check it\n",
+                  m$tree_id, result$max_edge_frac))
     }
   }
   write_back_all(SHEET_PATH, SHEET_NAME, OUTPUT_COL, updates)
+  if (!is.null(FLAG_COL) && length(flag_updates)) {
+    write_back_all(SHEET_PATH, SHEET_NAME, FLAG_COL, flag_updates)
+  }
   all_rows <- if (length(rows)) do.call(rbind, rows) else NULL
 } else if (batch) {
   files <- sort(list.files(path, pattern = "\\.ply$", full.names = TRUE))

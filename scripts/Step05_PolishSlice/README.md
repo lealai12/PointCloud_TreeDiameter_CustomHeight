@@ -10,7 +10,7 @@
 
 ## What happens here
 
-Look at the band from directly above. It should be a single closed ring. Remove everything that isn't the bark surface: stray points inside or outside the ring, bits of foliage or lichen, ghost points from the scan. Save as `.bin`.
+Look at the band from directly above (along Z axis for most clouds, y axis if scanned by CloudCompare). It should be a single closed ring. Remove everything that isn't the bark surface: stray points inside or outside the ring, bits of foliage or lichen, ghost points from the scan. Save as `.bin`.
 
 ## Not optional in practice
 
