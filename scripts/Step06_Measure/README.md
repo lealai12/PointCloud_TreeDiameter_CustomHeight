@@ -31,6 +31,8 @@ Note: The gap check flags, it doesn't block. Every ring gets a diameter, and Max
 
 Note: ITSMe underestimates on incomplete scans. Where an arc is missing, the concave hull cuts inward into the gap, while the convex hull bridges it the way a tape does. This is a strength of the convex-hull method.
 
+Note: ITSMe also re-cuts its own band from the sheet height, even though the polished ring is already cut. That second cut loses a few points sitting right on the band edge to rounding: 2 of 195,304 on 5926__LowerFlag and 4 of 180,236 on 2033__TopFlag. The other scripts measure the polished ring whole and lost none across all 41 slices. The loss is far too small to move a diameter, but it means the ring you polish is exactly the ring this method measures, and not quite the ring ITSMe measures.
+
 Note: Diameters are written to the sheet in whole mm, except ITSMe, which writes tenths of a mm. The CSVs keep full precision.
 
 Note: The Python and R twins should agree exactly, since a convex hull has one answer. Any difference is a bug. The R binned scripts have no --batch mode, so use --from-sheet or loop over the files.
