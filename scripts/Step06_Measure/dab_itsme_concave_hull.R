@@ -8,9 +8,16 @@
 # best -- and so an unexplained disagreement between them flags a slice worth
 # a second look, before you ever get to ground truth.
 #
+# Incomplete scans: where an arc of the ring is missing, the concave hull cuts
+# inward into the gap and underestimates, while dendro_tape's convex hull
+# bridges the gap the way a physical tape does. Read a low value here against
+# the slice's MaxEdgeFrac before treating it as a real difference in shape.
+#
 # Workflow this fits into:
-#   1. Isolate a cleaned TRUNK SECTION (a vertical chunk of the bole,
-#      tall enough to pick a height on -- NOT a pre-cut thin ring).
+#   1. Take the input for the site. In sheet mode that is the polished slice
+#      from step 5, already cut at the recorded height. From the command line
+#      it can also be a cleaned trunk section, and this script cuts its own
+#      band at --height-z either way.
 #   2. Pick a point on the section. On ForestScanner (Y-up) clouds that is its
 #      Y coordinate -- pass it to --height-z together with --up-axis y, which
 #      swaps the axes internally. Without --up-axis y this script defaults to
@@ -49,14 +56,14 @@ suppressMessages(library(ITSMe))
 # script's --from-sheet batch mode against their own project. See also
 # scripts/sheet_batch.R, which this block's values get handed to.
 # =============================================================================
-SHEET_PATH <- "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx"  # anonymized sheet -- .ply files are named with the same anonymized codes
+SHEET_PATH <- "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx"  # the working sheet, Tree_Tag matches the .ply file names
 SHEET_NAME <- 1                          # tab name (string) or 1-based index within SHEET_PATH
 TREE_ID_COL <- "Tree_Tag"                # column holding each tree's ID
 HEIGHT_COL <- "Y_value_Dendrometer"      # column holding the picked cut height (m); swap to
                                          # Y_value_TopFlag / Y_value_LowerFlag for those sites
 OUTPUT_COL <- "Dendrometer_DabItsme_ConcaveHull_RScript_Diameter_mm"  # column the diameter (mm) is written into
-PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working/Final_Disc_ply"  # whole trunk SECTIONS, not pre-cut discs
-PLY_FILENAME_PATTERN <- "{tree_id}.ply"  # {tree_id} required; {site} optional (see SITE_LABEL)
+PLY_FOLDER <- "C:/Projects/LiDAR_Project/Working_Steps/5_PolishedSlices"  # step 5 output: polished slices, <tag>__<Site>.ply
+PLY_FILENAME_PATTERN <- "{tree_id}__{site}.ply"  # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL <- "Dendrometer"              # substituted into {site} in the pattern, if used
 
 # ------------------------------------------------------------------ CLI parsing

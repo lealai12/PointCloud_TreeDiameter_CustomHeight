@@ -9,8 +9,8 @@ Retired **2026-09-21**. These measured a polished slice with a least-squares cir
 `dendro_tape.py` / `dendro_tape.R` now do that job, and do it better:
 
 - **Same number.** The convex-hull diameter is identical — 0.0000 mm apart on all 32 first-pass slices.
-- **Plus a gap check.** `dendro_tape` rejects a ring whose largest hull edge chords across a gap too wide to tape. It rejected 6 of the 32 rings `measure_slice` accepted: `2033__TopFlag`, `4524__LowerFlag`, `5213__LowerFlag`, `5926__LowerFlag`, `6647__LowerFlag`, `7163__LowerFlag`.
-- **Same pictures.** `dendro_tape` gained `--viz-dir`, writing the same bundle (fit PNG, slice cloud, hull/circle overlay PLYs, `measure.txt`), and draws a rejected ring's long edge in magenta labelled **PARTIAL RING**.
+- **Plus a gap check.** `dendro_tape` measures the largest hull edge as a fraction of equivalent diameter, catching a ring that chords across a hole — something angular coverage misses, because coverage is measured from the centroid and over-reports on a broken ring. On the first-pass slices it flagged 6 of the 32 rings `measure_slice` accepted in silence: `2033__TopFlag`, `4524__LowerFlag`, `5213__LowerFlag`, `5926__LowerFlag`, `6647__LowerFlag`, `7163__LowerFlag`. Since 2026-09-24 the check **flags rather than blocks** — the diameter is written either way and the fraction goes to its own `MaxEdgeFrac` column, because the guard cannot tell a genuine scan gap from a deep flute that a girth tape would legitimately bridge.
+- **Same pictures.** `dendro_tape` gained `--viz-dir`, writing the same bundle (fit PNG, slice cloud, hull/circle overlay PLYs, `measure.txt`), and draws a flagged ring's long edge in magenta labelled **PARTIAL RING**.
 
 They are kept as the record of what produced the first-pass results. `OUTPUT_COL` is set to `None` / `NULL` in both, so neither can write to the sheet even if run. Their measurement code is a copy of `fit_dab.*`, which stays at the `scripts/` root for the same reason.
 

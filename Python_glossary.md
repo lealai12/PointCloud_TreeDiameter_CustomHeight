@@ -1,9 +1,15 @@
 # Python Glossary — Point-Cloud Tree Diameter at Custom Height
 
 A plain-English reference for the Python used in this project's scripts
-(`scripts/fit_dab.py`, `scripts/Unused/loopclose.py`, `scripts/Step08_Measure/dendro_tape.py`). Every entry says **what it does**,
+(`scripts/fit_dab.py`, `scripts/Step06_Measure/dendro_tape.py`, `scripts/Unused/loopclose.py`). Every entry says **what it does**,
 shows a **snippet from our code**, and — where useful — gives an **R note** comparing
 it to something you already know from R.
+
+> **Where these files live.** `fit_dab.py` sits at the `scripts/` root: it is the untouched
+> *original* the workflow scripts were copied from, kept as the record, and it makes a stable
+> reference for examples. The scripts you actually run live in the numbered step folders
+> (`Step04_CutSlices/`, `Step06_Measure/`), and `loopclose.py` is in `Unused/` — never run in
+> this study. The Python constructs are identical across all of them.
 
 This doc grows as the code does: whenever a script uses a new construct, it gets added
 here. Skim the "How to read a script" section first; the rest is a lookup table.
@@ -63,7 +69,7 @@ environment is set up you rarely touch pip again.
 
 ### Running a script from the terminal
 ```bash
-python scripts/Step08_Measure/measure_slice.py slices/tree01_slice.ply --up-axis y
+python scripts/Step06_Measure/dendro_tape.py slices/tree01__Dendrometer.ply --up-axis y
 ```
 `python` = the interpreter; then the script path; then **arguments** the script reads
 (see `argparse`, §7). **R note:** like `Rscript myscript.R arg1 arg2`.
