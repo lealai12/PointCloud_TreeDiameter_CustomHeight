@@ -6,7 +6,7 @@
 # draw every method together on one set of axes. This script draws the same
 # comparisons split out, one facet per method, so each method's pattern can be
 # read without the others on top of it. No new measurement, no new metric.
-# The grouped figures are unchanged, this only adds five files.
+# The grouped figures are unchanged, this only adds six files.
 #
 # All five methods, at every validated site (Dendrometer and PaintMarker),
 # one row per tree + site. DBH vs DAB and EXCLUDE_SITES follow the other step 7
@@ -19,6 +19,7 @@
 #   by_method_error.png          signed % error per tree + site, plus averages
 #   by_method_error_mm.png       signed error in mm, pseudo-log axis
 #   by_method_boxplot.png        signed % error, DBH vs DAB
+#   by_method_boxplot_mm.png     signed error in mm, DBH vs DAB
 #   by_method_bland_altman.png   estimate - reading vs mean, per-method bias and limits
 #
 # Run:  Rscript scripts/Step07_Analysis/plot_by_method.R
@@ -188,6 +189,12 @@ p_box <- ggplot(long, aes(size, pct, fill = size)) +
   theme_minimal(base_size = 11)
 save_plot(p_box, "by_method_boxplot.png", 11, 8)
 
+# same box plot, signed error in mm (DJ, 2026-09-28)
+p_box_mm <- p_box + aes(y = err) +
+  labs(title = "Signed Error vs. Field Reading (mm), by Method and Measurement Type",
+       y = "Error  (est - reading)  [mm]")
+save_plot(p_box_mm, "by_method_boxplot_mm.png", 11, 8)
+
 # ---- Bland-Altman: each panel gets its own bias and 95% limits, computed
 # without the EXCLUDE_SENSITIVITY trees (every tree when it is empty), like the
 # grouped figure in compare_hull_methods.R.
@@ -212,4 +219,4 @@ p_ba <- ggplot(ba_data, aes(mean_est, err, colour = method_label, shape = flagge
   theme_minimal(base_size = 11)
 save_plot(p_ba, "by_method_bland_altman.png", 11, 8)
 
-cat(sprintf("\nWrote %s/by_method_{scatter,error,error_mm,boxplot,bland_altman}.png\n", plotdir))
+cat(sprintf("\nWrote %s/by_method_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png\n", plotdir))

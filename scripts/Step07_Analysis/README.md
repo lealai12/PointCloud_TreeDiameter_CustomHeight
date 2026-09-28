@@ -1,6 +1,6 @@
 # Step 07 — Analysis
 
-Tools: R only, by design. Five scripts in this folder.
+Tools: R only, by design. Six scripts in this folder.
 
 Note: Input is the working sheet, Working_Steps\field_measurements_Draft2_Working.xlsx, with real tree tags. Nothing else is read. Output CSVs go to results\ and pictures to results\plots\, or to the DAB_RESULTS folder if it is set.
 
@@ -9,11 +9,12 @@ The scripts, and what each one answers:
 - compare_hull_methods.R: whether the binned hull beats the raw-point convex hull, against the field reading and against each other. Also prints the Python vs R cross-check. results\hull_comparison_* CSVs, plus scatter, error, Bland-Altman and bin-width plots
 - plot_error_by_size.R: signed % error of every method, DBH vs DAB. results\error_by_size_pertree.csv, results\plots\error_by_size_boxplot.png
 - bin_fixed_angle_demo.R: the fixed-angle binned-hull diameter at every processed site, not just the validated ones. results\bin_fixed_angle_demo_all_sites.{csv,png}
-- plot_by_method.R: the figures above split out, one panel per method, all five methods. results\plots\by_method_{scatter,error,error_mm,boxplot,bland_altman}.png
+- plot_by_method.R: the figures above split out, one panel per method, all five methods. results\plots\by_method_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png
+- compare_fig_notes.R: at the buttressed (DAB) paint sites, error for trees with a fig noted in the BCI census notes vs. trees without, in mm and %. results\fig_notes_{pertree,summary}.csv, results\plots\fig_notes_error.png
 
 Steps:
 1. Enter the field readings in the sheet, in mm (Dendrometer_FieldDiameter, PaintMarker_FieldDiameter_mm), and close it in Excel.
-2. In each script's CONFIG, set EXCLUDE_SITES, PAINT_DBH_TREES and EXCLUDE_SENSITIVITY for your trees.
+2. In each script's CONFIG, set EXCLUDE_SITES, PAINT_DBH_TREES and EXCLUDE_SENSITIVITY for your trees, and FIG_TREES in compare_fig_notes.R.
 3. Run every script from the repo root:
 
     Rscript scripts/Step07_Analysis/validate_field_accuracy.R
@@ -21,6 +22,7 @@ Steps:
     Rscript scripts/Step07_Analysis/plot_error_by_size.R
     Rscript scripts/Step07_Analysis/bin_fixed_angle_demo.R
     Rscript scripts/Step07_Analysis/plot_by_method.R
+    Rscript scripts/Step07_Analysis/compare_fig_notes.R
 
 4. Check that every output listed above is there. A missing file usually means a sheet column upstream is empty, not that a script failed.
 
