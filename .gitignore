@@ -39,6 +39,7 @@ TreeTag_to_CodeTreeTag.xlsx
 
 # Local handoff / private instructions file.
 CLAUDE.md
+Claude outputs/
 
 # --- Office / OneDrive temp + lock files ------------------------------------
 ~$*

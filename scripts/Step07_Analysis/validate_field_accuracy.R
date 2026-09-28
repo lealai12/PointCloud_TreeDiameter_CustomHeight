@@ -1,42 +1,43 @@
 #!/usr/bin/env Rscript
 # validate_field_accuracy.R  --  FIELD ACCURACY VALIDATION
 # ---------------------------------------------------------------------------
-# Feasibility study, core accuracy comparison. At the dendrometer band,
-# compare three diameter estimates
-#   - ForestScanner  (iPhone app, Dendrometer_ForestScanner_Diameter_mm)
-#   - Python hull    (fit_dab.py convex-hull equiv diameter)
+# Feasibility study, core accuracy comparison. At each site with a field
+# reading (the Dendrometer and PaintMarker sites), compare three diameter
+# estimates
+#   - ForestScanner  (iPhone app, <Site>_ForestScanner_Diameter_mm)
+#   - Python hull    (dendro_tape.py convex-hull equiv diameter)
 #   - R functional   (dab_itsme_concave_hull.R ITSMe concave-hull diameter)
-# against the field ground truth (Dendrometer_FieldDiameter, mm).
+# against the field reading (Dendrometer_FieldDiameter or
+# PaintMarker_FieldDiameter_mm, mm). Rows are keyed by tree + site, since a
+# tree can have a reading at both sites.
 #
 # Run in TWO scopes:
-#   dendrometer_only  -> only trees with a real dendrometer (has_dendrometer
-#                        == "Yes"; they carry Dendro_DateTime + 1.3 m).
-#   all_sites         -> every tree with a dendrometer-site cloud estimate +
-#                        reading (Yes + Marked + No).
+#   dendrometer_only  -> the Dendrometer site only.
+#   all_sites         -> the Dendrometer and PaintMarker sites together.
 #
-# SIZE GROUPING: measurement type (has_dendrometer), not a diameter
-# threshold. "small"/"large" below is really "DBH-style dendrometer tree" vs.
-# "DAB (above-buttress) tree" -- has_dendrometer == "Yes" means a real
-# dendrometer band at breast height (no buttress problem), regardless of
-# that tree's actual diameter; "Marked"/"No" means a buttressed trunk
-# measured above the buttress instead. These two groupings mostly overlap
-# with a ~1m diameter split in this sample but NOT always -- two
-# has_dendrometer == "Yes" trees are >1m diameter. Group by the reason the
-# tree is hard to measure, not a size proxy for it.
+# SIZE GROUPING: by site, not a diameter threshold. The Dendrometer site is
+# "DBH (dendrometer)", a band at breast height with no buttress problem. The
+# PaintMarker site is "DAB (above buttress)", a buttressed trunk measured
+# above the buttress. Group by the reason the tree is hard to measure, not a
+# size proxy for it.
 #
 # Notes:
-#   - Tree 17 (code) is kept in (per operator) but over-reads badly on the cloud
-#     methods; a sensitivity row excluding it is also reported.
-#   - Gross data-entry outliers (|error|/reading > 0.5, e.g. ForestScanner
-#     misreads on codes 14 and 6) are flagged and excluded from metrics.
+#   - Trees in EXCLUDE_SENSITIVITY (CONFIG) stay in the headline metrics, and
+#     a sensitivity row excluding them is also reported.
+#   - Flagged rings (MaxEdgeFrac >= FLAG_THRESHOLD) stay in the headline
+#     metrics, and a sensitivity row excluding them is also reported. The hull
+#     and ITSMe both use the DendroTape flag, since they measure the same ring.
+#     ForestScanner doesn't use the ring, so it is never dropped by the flag.
+#   - Gross data-entry outliers (|error|/reading > 0.5, e.g. a ForestScanner
+#     reading entered in the wrong unit) are flagged and excluded from metrics.
 #
-# Outputs (repo results/), per scope <s> in {dendrometer_only, all_sites}:
-#   field_accuracy_<s>_pertree.csv    one row per tree, all methods + signed % error
+# Outputs (results/, or DAB_RESULTS), per scope <s> in {dendrometer_only, all_sites}:
+#   field_accuracy_<s>_pertree.csv    one row per tree + site, all methods + signed % error
 #   field_accuracy_<s>_summary.csv    per-method metrics
 #   plots/field_accuracy_<s>_scatter.png   estimate vs reading, 1:1 line
 #   plots/field_accuracy_<s>_error.png     signed % error per tree
 #
-# Run:  Rscript scripts/validate_field_accuracy.R
+# Run:  Rscript scripts/Step07_Analysis/validate_field_accuracy.R
 # ---------------------------------------------------------------------------
 
 suppressMessages({
@@ -50,52 +51,68 @@ source("scripts/plot_style.R")   # cwd-relative (run from the repo root): shared
 # Same role as the CONFIG block at the top of every measurement script
 # (fit_dab.py/.R etc.): the one place a future researcher with a different
 # sheet location has to edit. `sheet` is deliberately an absolute path to the
-# LOCAL working root, not a repo-relative one -- the anonymized workbook lives
-# outside version control and is never committed.
+# LOCAL working root, not a repo-relative one. The working sheet holds real
+# tree tags, lives outside version control and is never committed.
 #
 # Note the project's standing advice (CLAUDE.md): every script in this repo
 # hardcodes this same path, so recreating that folder structure locally is
 # usually simpler and less error-prone than editing the path in each script.
 # Override without editing the file by setting the DAB_SHEET env var.
 #
-# `outdir`/`plotdir` stay repo-relative -- this script reads ONLY the
-# anonymized sheet, so its output is anonymization-safe and belongs in the
-# tracked results/ folder. Run it from the repo root (source() below is
+# `outdir` defaults to the repo-relative results/ folder, and the DAB_RESULTS
+# env var overrides it. results/ is tracked, so what this writes there goes
+# public when the repo is pushed. Run it from the repo root (source() below is
 # repo-relative too).
 # =============================================================================
 sheet  <- Sys.getenv("DAB_SHEET",
-                     "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx")
-outdir <- "results"
+                     "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx")
+outdir <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
+EXCLUDE_SENSITIVITY <- c("3853")   # trees dropped from the sensitivity row (3853 = first-pass code 17, scan hole over the site)
+FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
+
+# field reading column for each site with ground truth, and its short label
+FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
+SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
 num   <- function(x) suppressWarnings(as.numeric(x))
 GROSS <- 0.5     # |error|/reading above this = likely data-entry error, excluded
 
-# field_measurements_Anon.xlsx holds anonymized codes in Tree_Tag. Read only
-# this anonymized file, as-is -- no translation logic here.
+# The working sheet holds real tree tags in Tree_Tag. Read it as-is, with no
+# translation logic here.
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
-# every dendrometer-site cloud-vs-reading pair (the "all_sites" scope) ------
-acc_all <- raw %>%
-  transmute(
-    tree          = Tree_Tag,
-    has_dendro    = has_dendrometer,
-    ForestScanner = num(Dendrometer_ForestScanner_Diameter_mm),
-    Python        = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
-    R             = num(Dendrometer_DabItsme_ConcaveHull_RScript_Diameter_mm),
-    reading       = num(Dendrometer_FieldDiameter)
-  ) %>%
+# every cloud-vs-reading pair, one row per tree + site (the "all_sites" scope)
+acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) {
+  raw %>%
+    transmute(
+      tree          = Tree_Tag,
+      site          = s,
+      ForestScanner = num(.data[[sprintf("%s_ForestScanner_Diameter_mm", s)]]),
+      Python        = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", s)]]),
+      R             = num(.data[[sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", s)]]),
+      max_edge      = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", s)]]),
+      reading       = num(.data[[FIELD_COL[[s]]]])
+    )
+})) %>%
   filter(!is.na(reading), !is.na(Python)) %>%
-  mutate(size = if_else(has_dendro == "Yes", "DBH (dendrometer)", "DAB (above buttress)"))
+  mutate(size         = if_else(site == "Dendrometer", "DBH (dendrometer)", "DAB (above buttress)"),
+         ring_flagged = !is.na(max_edge) & max_edge >= FLAG_THRESHOLD)
 
 # ---------------------------------------------------------------------------
 # run one scope: long form, per-tree table, metrics, plots
 # ---------------------------------------------------------------------------
 run_scope <- function(acc, scope, title) {
+
+  if (nrow(acc) == 0) {
+    cat(sprintf("\n[%s skipped] no field readings in the sheet yet\n", scope))
+    return(invisible(NULL))
+  }
 
   long <- acc %>%
     pivot_longer(c(ForestScanner, Python, R), names_to = "method", values_to = "est") %>%
@@ -103,13 +120,16 @@ run_scope <- function(acc, scope, title) {
     mutate(err   = est - reading,
            pct   = 100 * err / reading,
            gross = abs(err) / reading > GROSS,
-           # x-axis label for the bar plots: tree number + true dendrometer
-           # reading in parentheses, e.g. "15 (448)"
-           tree_label = sprintf("%s (%.0f)", tree, reading))
+           # the ring flag drops the hull and ITSMe rows in the flagged-ring
+           # sensitivity row, never ForestScanner, which doesn't use the ring
+           flag_drop = ring_flagged & method != "ForestScanner",
+           # x-axis label for the bar plots: tree tag, short site, and the
+           # field reading in parentheses, e.g. "3031 Dendro (724)"
+           tree_label = sprintf("%s %s (%.0f)", tree, SITE_SHORT[site], reading))
 
   pertree <- long %>%
     mutate(tag = ifelse(gross, sprintf("%.0f*", pct), sprintf("%.0f", pct))) %>%
-    select(tree, size, reading, method, est, tag) %>%
+    select(tree, site, size, reading, flagged = ring_flagged, method, est, tag) %>%
     pivot_wider(names_from = method, values_from = c(est, tag),
                 names_glue = "{method}_{.value}") %>%
     arrange(size, reading)
@@ -131,7 +151,8 @@ run_scope <- function(acc, scope, title) {
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
-    summ(long %>% filter(tree != "17"), "excl. tree 17"),
+    summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
+    summ(long %>% filter(!flag_drop), "excl. flagged rings"),
     if (n_distinct(acc$size) > 1) by_size else NULL
   )
 
@@ -143,7 +164,7 @@ run_scope <- function(acc, scope, title) {
   cat(sprintf("\n============ FIELD ACCURACY -- %s  (n=%d) ============\n",
               toupper(title), nrow(acc)))
   cat("signed % error per method (* = gross outlier, excluded from metrics):\n\n")
-  print(as.data.frame(pertree %>% select(tree, size, reading,
+  print(as.data.frame(pertree %>% select(tree, site, size, reading, flagged,
           ForestScanner_tag, Python_tag, R_tag)), row.names = FALSE)
   if (nrow(gross_rows)) {
     cat("\n-- gross data-entry outliers (excluded) --\n")
@@ -172,41 +193,41 @@ run_scope <- function(acc, scope, title) {
   p1 <- p1 +
     scale_colour_method() + scale_shape_method() +
     coord_equal(xlim = lim, ylim = lim) +
-    labs(title = "Estimated Diameter vs. Dendrometer Reading",
+    labs(title = "Estimated Diameter vs. Field Reading",
          subtitle = paste0(title, " -- dashed = 1:1",
                             if (has_gross) "; x = gross data-entry misread" else ""),
-         x = "Dendrometer reading (mm)", y = "Estimated diameter (mm)") +
+         x = "Field reading (mm)", y = "Estimated diameter (mm)") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, sprintf("field_accuracy_%s_scatter.png", scope)),
          p1, width = 8.5, height = 6.8, dpi = 130)
 
   # append two summary bars per method at the far right of the x-axis: the
-  # mean of exactly the bars plotted (non-gross trees, tree 17 included), and
-  # a second mean excluding tree 17 too (tree 17 is a known outlier in this
-  # dataset -- see below -- so it's useful to see the average with and without it).
+  # mean of exactly the bars plotted (non-gross trees, EXCLUDE_SENSITIVITY
+  # included), and a second mean excluding the EXCLUDE_SENSITIVITY trees too,
+  # so the average can be seen with and without them.
   # Large finite `reading` sentinels (not Inf) so reorder() can still tell
   # the two summary bars apart and order them consistently after the trees.
   avg_pct <- long %>% filter(!gross) %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>%
     mutate(tree_label = "Average", reading = 1e6)
-  avg_pct_excl17 <- long %>% filter(!gross, tree != "17") %>% group_by(method) %>%
+  avg_pct_excl <- long %>% filter(!gross, !tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>%
-    mutate(tree_label = "Average (excl. 17)", reading = 2e6)
+    mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL), reading = 2e6)
   p2_data <- bind_rows(long %>% filter(!gross) %>% select(tree_label, reading, method, pct),
-                       avg_pct, avg_pct_excl17) %>%
+                       avg_pct, avg_pct_excl) %>%
     mutate(method_label = relabel_method(method))
 
-  # Extra top headroom (12% instead of ggplot's 5% default): with tree 17's
-  # error dominating the range, the default expansion leaves its bar sitting
-  # right against the panel edge -- not clipped, but reads that way.
+  # Extra top headroom (12% instead of ggplot's 5% default): when one tree's
+  # error dominates the range, the default expansion leaves its bar sitting
+  # right against the panel edge, not clipped, but it reads that way.
   p2 <- ggplot(p2_data, aes(reorder(tree_label, reading), pct, fill = method_label)) +
     geom_col(position = position_dodge(0.8), width = 0.7) +
     geom_hline(yintercept = 0, colour = "grey40") +
     scale_y_continuous(expand = expansion(mult = c(0.05, 0.12))) +
     scale_fill_method() +
-    labs(title = "Signed Percent Error vs. Dendrometer Reading",
+    labs(title = "Signed Percent Error vs. Field Reading",
          subtitle = paste0(title, " -- trees ordered by reading, plus per-method averages"),
-         x = "Tree (dendrometer reading, mm)", y = "Error  (est - reading) / reading  [%]") +
+         x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]") +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   ggsave(file.path(plotdir, sprintf("field_accuracy_%s_error.png", scope)),
@@ -215,13 +236,14 @@ run_scope <- function(acc, scope, title) {
   invisible(summary_tbl)
 }
 
-# dendrometer trees only
-run_scope(acc_all %>% filter(has_dendro == "Yes"),
-          "dendrometer_only", "Real Dendrometer Trees Only")
+# the Dendrometer site only
+r1 <- run_scope(acc_all %>% filter(site == "Dendrometer"),
+                "dendrometer_only", "Dendrometer Site Only")
 
-# every validated site (dendrometer + marked/matched sites on buttressed trees)
-run_scope(acc_all,
-          "all_sites", "All Validated Sites")
+# every site with a field reading (Dendrometer + PaintMarker)
+r2 <- run_scope(acc_all,
+                "all_sites", "All Validated Sites")
 
-cat("\nWrote results/field_accuracy_{dendrometer_only,all_sites}_{pertree,summary}.csv and",
-    "results/plots/field_accuracy_{dendrometer_only,all_sites}_{scatter,error}.png\n")
+if (!is.null(r1) || !is.null(r2))
+  cat(sprintf("\nWrote %s/field_accuracy_{dendrometer_only,all_sites}_{pertree,summary}.csv and %s/field_accuracy_*_{scatter,error}.png\n",
+              outdir, plotdir))

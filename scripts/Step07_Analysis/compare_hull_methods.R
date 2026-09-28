@@ -31,17 +31,17 @@
 # TWO parts, with DELIBERATELY DIFFERENT data sources (read this before
 # changing paths):
 #
-#   Part 1 -- vs_field_reading: reads ONLY the anonymized sheet
-#   (field_measurements_Anon.xlsx), same rule as validate_field_accuracy.R.
-#   The true-hull and binned-hull diameters (Python AND R, for the
-#   cross-check) are all columns in that sheet once anonymize-and-transcribed
-#   in -- this part needs NOTHING from outside the anonymized sheet:
-#     Dendrometer_DendroTape_pythonScript_Diameter_mm             = Python true hull (dendro_tape.py)
-#     Dendrometer_DendroTape_RScript_Diameter_mm        = R true hull (dendro_tape.R)
-#     Dendrometer_BinFixedAngle_pythonScript_Diameter_mm = Python binned hull (2 deg angular bin)
-#     Dendrometer_BinFixedAngle_RScript_Diameter_mm      = R binned hull (2 deg angular bin)
-#     Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm = Python binned hull (10mm arc-length bin)
-#     Dendrometer_BinMeanDistanceRadius_RScript_Diameter_mm      = R binned hull (10mm arc-length bin)
+#   Part 1 -- vs_field_reading: reads only the working sheet, same as
+#   validate_field_accuracy.R, at the two sites with a field reading
+#   (Dendrometer and PaintMarker), one row per tree + site. The true-hull and
+#   binned-hull diameters (Python AND R, for the cross-check) are all columns
+#   in that sheet:
+#     <Site>_DendroTape_pythonScript_Diameter_mm             = Python true hull (dendro_tape.py)
+#     <Site>_DendroTape_RScript_Diameter_mm        = R true hull (dendro_tape.R)
+#     <Site>_BinFixedAngle_pythonScript_Diameter_mm = Python binned hull (2 deg angular bin)
+#     <Site>_BinFixedAngle_RScript_Diameter_mm      = R binned hull (2 deg angular bin)
+#     <Site>_BinMeanDistanceRadius_pythonScript_Diameter_mm = Python binned hull (10mm arc-length bin)
+#     <Site>_BinMeanDistanceRadius_RScript_Diameter_mm      = R binned hull (10mm arc-length bin)
 #   The 2 deg and 10mm binned-hull columns are two separate bin_mean_distance_radius.py/.R
 #   runs (fixed angular bin vs. fixed arc-length bin -- see that script's header
 #   for why the arc-length version was added), transcribed into separate
@@ -53,14 +53,12 @@
 #   Part 2 -- method_agreement: true hull vs. binned hull, paired per
 #   tree+site, PER BIN VARIANT (2deg, 10mm), with NO field reading required --
 #   the fuller processed batch (every measured site: TopFlag/LowerFlag/
-#   Dendrometer), not just the ones with field ground truth. ANONYMIZED
-#   SHEET ONLY, same rule as Part 1 and validate_field_accuracy.R -- reads
-#   TopFlag/LowerFlag/Dendrometer true-hull and binned-hull columns straight
-#   from field_measurements_Anon.xlsx, nothing else. The 10mm-bin variant
-#   stays Dendrometer-only: the anonymized sheet only has
-#   *_BinMeanDistanceRadius_* columns for that site.
+#   PaintMarker/Dendrometer), not just the ones with field ground truth.
+#   Working sheet only, same as Part 1. It reads the true-hull and
+#   binned-hull columns for all four sites, nothing else, and both bin
+#   variants cover all four sites.
 #
-# Run:  Rscript scripts/compare_hull_methods.R
+# Run:  Rscript scripts/Step07_Analysis/compare_hull_methods.R
 # ---------------------------------------------------------------------------
 
 suppressMessages({
@@ -74,32 +72,40 @@ source("scripts/plot_style.R")   # cwd-relative (run from the repo root): shared
 # Same role as the CONFIG block at the top of every measurement script
 # (fit_dab.py/.R etc.): the one place a future researcher with a different
 # sheet location has to edit. `sheet` is deliberately an absolute path to the
-# LOCAL working root, not a repo-relative one -- the anonymized workbook lives
-# outside version control and is never committed.
+# LOCAL working root, not a repo-relative one. The working sheet holds real
+# tree tags, lives outside version control and is never committed.
 #
 # Note the project's standing advice (CLAUDE.md): every script in this repo
 # hardcodes this same path, so recreating that folder structure locally is
 # usually simpler and less error-prone than editing the path in each script.
 # Override without editing the file by setting the DAB_SHEET env var.
 #
-# BOTH parts below read ONLY the anonymized sheet, so all output here is
-# anonymization-safe and belongs in the tracked results/ folder. (If you ever
-# repoint a part at real-tag CSVs, its output must go to a folder OUTSIDE this
-# repo -- see the "never write real-tag output into results/" rule.)
+# BOTH parts below read only the real-tag working sheet. `outdir` defaults to
+# the repo-relative results/ folder, and the DAB_RESULTS env var overrides it.
+# results/ is tracked, so what this writes there goes public when the repo is
+# pushed.
 # Run from the repo root; the source() above is repo-relative.
 # =============================================================================
 sheet   <- Sys.getenv("DAB_SHEET",
-                      "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx")
-outdir  <- "results"
+                      "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx")
+outdir  <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
+EXCLUDE_SENSITIVITY <- c("3853")   # trees dropped from the sensitivity row (3853 = first-pass code 17, scan hole over the site)
+FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
+
+# field reading column for each site with ground truth, and its short label
+FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
+SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
 num   <- function(x) suppressWarnings(as.numeric(x))
 GROSS <- 0.5     # |error|/reading above this = likely data-entry/registration error, excluded
 
 # ===========================================================================
 # PART 1 -- true hull & binned hull vs. field reading.
-# Anonymized sheet ONLY -- same rule as validate_field_accuracy.R.
+# Working sheet only, same as validate_field_accuracy.R, at the Dendrometer
+# and PaintMarker sites.
 #
 # Python-only in the OUTPUT (results CSVs/plots): R is still read in here and
 # cross-checked against Python below, but not shown as its own column/bar --
@@ -114,29 +120,32 @@ raw <- read_excel(sheet) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
-acc <- raw %>%
+acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   transmute(
     tree               = Tree_Tag,
-    has_dendro         = has_dendrometer,
+    site               = s,
     # Not part of the true-hull/binned-hull comparison this script exists for
     # (see header) -- kept only so the plotting section below can build the
     # combined ForestScanner + hull-methods figures (FIG 2a/3/3b) without a
     # second read of the sheet. Deliberately excluded from `long`/the
     # written CSVs, which stay scoped to the three hull methods.
-    ForestScanner            = num(Dendrometer_ForestScanner_Diameter_mm),
-    Python_true_hull        = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
-    R_true_hull             = num(Dendrometer_DendroTape_RScript_Diameter_mm),
-    Python_bin_hull_FixedAngle      = num(Dendrometer_BinFixedAngle_pythonScript_Diameter_mm),
-    R_bin_hull_FixedAngle           = num(Dendrometer_BinFixedAngle_RScript_Diameter_mm),
-    Python_bin_hull_MeanDistanceRadius = num(Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm),
-    R_bin_hull_MeanDistanceRadius      = num(Dendrometer_BinMeanDistanceRadius_RScript_Diameter_mm),
-    reading            = num(Dendrometer_FieldDiameter)
-  ) %>%
+    ForestScanner            = num(.data[[sprintf("%s_ForestScanner_Diameter_mm", s)]]),
+    Python_true_hull        = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", s)]]),
+    R_true_hull             = num(.data[[sprintf("%s_DendroTape_RScript_Diameter_mm", s)]]),
+    Python_bin_hull_FixedAngle      = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", s)]]),
+    R_bin_hull_FixedAngle           = num(.data[[sprintf("%s_BinFixedAngle_RScript_Diameter_mm", s)]]),
+    Python_bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
+    R_bin_hull_MeanDistanceRadius      = num(.data[[sprintf("%s_BinMeanDistanceRadius_RScript_Diameter_mm", s)]]),
+    # each method's own gap flag, for the flagged-ring sensitivity row
+    edge_true_hull                   = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", s)]]),
+    edge_bin_hull_FixedAngle         = num(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]]),
+    edge_bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]]),
+    reading            = num(.data[[FIELD_COL[[s]]]])
+  ))) %>%
   filter(!is.na(reading)) %>%
-  # SIZE GROUPING: measurement type, not a diameter threshold -- see
-  # validate_field_accuracy.R's header for why (two has_dendrometer == "Yes"
-  # trees are >1m diameter, so a raw threshold misclassifies them).
-  mutate(size = if_else(has_dendro == "Yes", "DBH (dendrometer)", "DAB (above buttress)"))
+  # SIZE GROUPING: by site, not a diameter threshold. See
+  # validate_field_accuracy.R's header for why.
+  mutate(size = if_else(site == "Dendrometer", "DBH (dendrometer)", "DAB (above buttress)"))
 
 # Python vs R cross-check (console only -- not written anywhere): confirms
 # the two independent implementations still agree before we drop R from the
@@ -167,17 +176,23 @@ long <- acc %>%
   mutate(err   = est - reading,
          pct   = 100 * err / reading,
          gross = abs(err) / reading > GROSS,
-         # x-axis label for the bar plots: tree number + true dendrometer
-         # reading in parentheses, e.g. "15 (448)"
-         tree_label = sprintf("%s (%.0f)", tree, reading))
+         # each method is dropped from the flagged-ring row by its own flag
+         flag_drop = case_when(
+           method == "true_hull"                   ~ edge_true_hull >= FLAG_THRESHOLD,
+           method == "bin_hull_FixedAngle"         ~ edge_bin_hull_FixedAngle >= FLAG_THRESHOLD,
+           method == "bin_hull_MeanDistanceRadius" ~ edge_bin_hull_MeanDistanceRadius >= FLAG_THRESHOLD),
+         flag_drop = !is.na(flag_drop) & flag_drop,
+         # x-axis label for the bar plots: tree tag, short site, and the
+         # field reading in parentheses, e.g. "3031 Dendro (724)"
+         tree_label = sprintf("%s %s (%.0f)", tree, SITE_SHORT[site], reading))
 
 if (nrow(long) == 0) {
-  cat("\n[Part 1 skipped] the sheet has no Dendrometer_BinFixedAngle_*_Diameter_mm ",
-      "values yet -- anonymize-and-transcribe the binned-hull results in first.\n", sep = "")
+  cat("\n[Part 1 skipped] no field readings in the sheet yet ",
+      "(Dendrometer_FieldDiameter, PaintMarker_FieldDiameter_mm).\n", sep = "")
 } else {
   pertree <- long %>%
     mutate(tag = ifelse(gross, sprintf("%.0f*", pct), sprintf("%.0f", pct))) %>%
-    select(tree, size, reading, method, est, tag) %>%
+    select(tree, site, size, reading, method, est, tag) %>%
     pivot_wider(names_from = method, values_from = c(est, tag),
                 names_glue = "{method}_{.value}") %>%
     arrange(size, reading)
@@ -197,7 +212,8 @@ if (nrow(long) == 0) {
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
-    summ(long %>% filter(tree != "17"), "excl. tree 17"),
+    summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
+    summ(long %>% filter(!flag_drop), "excl. flagged rings"),
     if (n_distinct(long$size) > 1) by_size else NULL
   )
   write.csv(summary_tbl, file.path(outdir, "hull_comparison_vs_field_reading_summary.csv"), row.names = FALSE)
@@ -215,12 +231,12 @@ if (nrow(long) == 0) {
   # to the three hull methods; ForestScanner's own metrics already live in
   # field_accuracy_*.csv. See the plot-cleanup spec, 2026-08-02.
   fs_long <- acc %>%
-    transmute(tree, size, reading, est = ForestScanner, method = "ForestScanner") %>%
+    transmute(tree, site, size, reading, est = ForestScanner, method = "ForestScanner") %>%
     filter(!is.na(est)) %>%
     mutate(err   = est - reading,
            pct   = 100 * err / reading,
            gross = abs(err) / reading > GROSS,
-           tree_label = sprintf("%s (%.0f)", tree, reading))
+           tree_label = sprintf("%s %s (%.0f)", tree, SITE_SHORT[site], reading))
   long_with_fs <- bind_rows(long, fs_long)
 
   # ---- FIG 2a: estimate vs. reading, four arms (ForestScanner + all three
@@ -237,9 +253,9 @@ if (nrow(long) == 0) {
               colour = "black", size = 3, vjust = -1.1, inherit.aes = FALSE) +
     scale_colour_method() + scale_shape_method() +
     coord_equal(xlim = lim, ylim = lim) +
-    labs(title = "Estimated Diameter vs. Dendrometer Reading",
+    labs(title = "Estimated Diameter vs. Field Reading",
          subtitle = "dashed = 1:1;  x = ForestScanner gross data-entry misread (tree labeled)",
-         x = "Dendrometer reading (mm)", y = "Estimated diameter (mm)",
+         x = "Field reading (mm)", y = "Estimated diameter (mm)",
          caption = "Binned hull, fixed angle and Binned hull, mean-distance radius overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_scatter.png"), p_fig2a, width = 7.5, height = 6.8, dpi = 130)
@@ -247,10 +263,10 @@ if (nrow(long) == 0) {
   # ---- FIG 2b: Bland-Altman, the three hull arms only (no ForestScanner --
   # this figure is about agreement between the hull methods and the field
   # reading, not another vs.-reading scatter). Bias/limits of agreement
-  # computed excl. tree 17, for Convex hull and Binned hull 2deg only (the
-  # two arms with the biggest spread difference).
+  # computed excl. the EXCLUDE_SENSITIVITY trees, for Convex hull and Binned
+  # hull 2deg only (the two arms with the biggest spread difference).
   ba_stats <- function(m) {
-    d <- long %>% filter(method == m, tree != "17")
+    d <- long %>% filter(method == m, !tree %in% EXCLUDE_SENSITIVITY)
     b <- mean(d$err); s <- sd(d$err)
     list(bias = b, lo = b - 1.96 * s, hi = b + 1.96 * s)
   }
@@ -267,12 +283,13 @@ if (nrow(long) == 0) {
     geom_hline(yintercept = stat_med2$bias, colour = col_med2, linetype = 2) +
     geom_hline(yintercept = c(stat_med2$lo, stat_med2$hi), colour = col_med2, linetype = 3) +
     geom_point(size = 3, alpha = 0.85) +
-    geom_text(data = ba_data %>% filter(tree == "17", method == "true_hull"),
-              aes(label = "tree 17"), colour = "black", size = 3, vjust = -1, hjust = -0.15,
+    geom_text(data = ba_data %>% filter(tree %in% EXCLUDE_SENSITIVITY, method == "true_hull"),
+              aes(label = tree), colour = "black", size = 3, vjust = -1, hjust = -0.15,
               show.legend = FALSE) +
     scale_colour_method() + scale_shape_method() +
-    labs(title = "Agreement with Dendrometer Reading (Bland-Altman)",
-         subtitle = "dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Binned hull, fixed angle; excl. tree 17)",
+    labs(title = "Agreement with Field Reading (Bland-Altman)",
+         subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Binned hull, fixed angle; ",
+                           EXCL_LABEL, ")"),
          x = "Mean of estimate and reading (mm)", y = "Estimate − reading (mm)") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_bland_altman.png"), p_fig2b, width = 8, height = 6, dpi = 130)
@@ -287,7 +304,7 @@ if (nrow(long) == 0) {
   tree_labels_ordered <- long_with_fs %>% filter(!gross) %>%
     distinct(tree, reading, tree_label) %>% arrange(reading)
   n_trees <- nrow(tree_labels_ordered)
-  level_order  <- c(tree_labels_ordered$tree_label, "Average", "Average (excl. 17)")
+  level_order  <- c(tree_labels_ordered$tree_label, "Average", sprintf("Average (%s)", EXCL_LABEL))
   boundary_avg <- n_trees + 0.5   # rule between the last tree and the Average bars
 
   # ---- FIG 3: signed % error, four arms, revises the hull-only error plot
@@ -296,10 +313,10 @@ if (nrow(long) == 0) {
   # field_accuracy_*_error.png for a different colour scheme.
   avg_pct        <- long_with_fs %>% filter(!gross) %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>% mutate(tree_label = "Average")
-  avg_pct_excl17 <- long_with_fs %>% filter(!gross, tree != "17") %>% group_by(method) %>%
-    summarise(pct = mean(pct), .groups = "drop") %>% mutate(tree_label = "Average (excl. 17)")
+  avg_pct_excl   <- long_with_fs %>% filter(!gross, !tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
+    summarise(pct = mean(pct), .groups = "drop") %>% mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   p3_data <- bind_rows(long_with_fs %>% filter(!gross) %>% select(tree_label, method, pct),
-                       avg_pct, avg_pct_excl17) %>%
+                       avg_pct, avg_pct_excl) %>%
     mutate(method_label = relabel_method(method),
            tree_label    = factor(tree_label, levels = level_order))
 
@@ -309,9 +326,9 @@ if (nrow(long) == 0) {
     geom_hline(yintercept = 0, colour = "grey40") +
     scale_y_continuous(expand = expansion(mult = c(0.05, 0.12))) +
     scale_fill_method() +
-    labs(title = "Signed Percent Error vs. Dendrometer Reading",
+    labs(title = "Signed Percent Error vs. Field Reading",
          subtitle = "trees ordered by reading; dashed rule marks the summary block (see hull_comparison_..._summary.csv for the DBH-vs-DAB breakdown)",
-         x = "Tree (dendrometer reading, mm)", y = "Error  (est - reading) / reading  [%]") +
+         x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]") +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_error.png"), p_fig3, width = 9.5, height = 5.5, dpi = 130)
@@ -320,14 +337,14 @@ if (nrow(long) == 0) {
   # the pseudo-log axis -- a bar's LENGTH is read as magnitude, so on a log
   # scale a 100mm bar looks roughly 3x a 10mm bar instead of 10x, which is
   # misleading. A point's position on the same axis carries no such
-  # implication, so the log-ish compression (needed so tree 17's ~430mm
-  # outlier doesn't flatten every other bar to invisibility) stays honest.
+  # implication, so the log-ish compression (needed so one large outlier
+  # doesn't flatten every other bar to invisibility) stays honest.
   avg_err        <- long_with_fs %>% filter(!gross) %>% group_by(method) %>%
     summarise(err = mean(err), .groups = "drop") %>% mutate(tree_label = "Average")
-  avg_err_excl17 <- long_with_fs %>% filter(!gross, tree != "17") %>% group_by(method) %>%
-    summarise(err = mean(err), .groups = "drop") %>% mutate(tree_label = "Average (excl. 17)")
+  avg_err_excl   <- long_with_fs %>% filter(!gross, !tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
+    summarise(err = mean(err), .groups = "drop") %>% mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   p3b_data <- bind_rows(long_with_fs %>% filter(!gross) %>% select(tree_label, method, err),
-                        avg_err, avg_err_excl17) %>%
+                        avg_err, avg_err_excl) %>%
     mutate(method_label = relabel_method(method),
            tree_label    = factor(tree_label, levels = level_order))
 
@@ -338,9 +355,9 @@ if (nrow(long) == 0) {
     scale_y_continuous(trans = scales::pseudo_log_trans(sigma = 10, base = 10),
                         breaks = c(-100, -30, -10, 0, 10, 30, 100, 300)) +
     scale_colour_method() + scale_shape_method() +
-    labs(title = "Signed Error vs. Dendrometer Reading (mm)",
+    labs(title = "Signed Error vs. Field Reading (mm)",
          subtitle = "points, not bars (bar length on a log axis is misleading); dashed rule marks the summary block",
-         x = "Tree (dendrometer reading, mm)", y = "Error  (est - reading)  [mm, pseudo-log]") +
+         x = "Tree and site (field reading, mm)", y = "Error  (est - reading)  [mm, pseudo-log]") +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_error_mm.png"), p_fig3b, width = 9.5, height = 5.5, dpi = 130)
@@ -349,7 +366,7 @@ if (nrow(long) == 0) {
   # almost exactly in FIG 2a (a legend entry with no visible points reads
   # like a rendering bug); this figure shows why, on its own axis.
   q3_data <- long %>% filter(method %in% c("bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius")) %>%
-    select(tree, reading, method, est) %>%
+    select(tree, site, reading, method, est) %>%
     pivot_wider(names_from = method, values_from = est) %>%
     mutate(diff_mm = bin_hull_FixedAngle - bin_hull_MeanDistanceRadius)
 
@@ -358,47 +375,38 @@ if (nrow(long) == 0) {
     geom_point(size = 3, colour = col_med2) +
     labs(title = "Bin-Width Agreement: Binned Hull, Fixed Angle vs. Mean-Distance Radius",
          subtitle = "(2° estimate − 10mm estimate) per tree -- the two bin widths are\nindistinguishable at the scale of the measurement",
-         x = "Dendrometer reading (mm)", y = "2° estimate − 10mm estimate (mm)") +
+         x = "Field reading (mm)", y = "2° estimate − 10mm estimate (mm)") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_binwidth_agreement.png"), p_q3, width = 7.5, height = 5.2, dpi = 130)
 
-  cat("\nWrote results/hull_comparison_vs_field_reading_{pertree,summary}.csv and",
-      "results/plots/hull_comparison_vs_field_reading_{scatter,error,error_mm}.png,",
-      "results/plots/hull_comparison_bland_altman.png,",
-      "results/plots/hull_comparison_binwidth_agreement.png\n")
+  cat(sprintf("\nWrote %s/hull_comparison_vs_field_reading_{pertree,summary}.csv and %s/hull_comparison_{vs_field_reading_{scatter,error,error_mm},bland_altman,binwidth_agreement}.png\n",
+              outdir, plotdir))
 }
 
 # ===========================================================================
 # PART 2 -- true hull vs. binned hull, PAIRED (same tree+site), no field
-# reading required. Anonymized sheet ONLY -- see header above.
+# reading required. Working sheet only, see header above.
 #
 # Python-only in the OUTPUT here too, same reasoning and same 2026-08-02
 # decision as Part 1: R columns are still read and cross-checked against
 # Python below, just not carried into `agreement`/the summary/the plot.
 # ===========================================================================
-site_pair <- function(site) {
+site_pair <- function(site, stem) {
   raw %>%
     transmute(
       tree = Tree_Tag, site = site,
       true_py = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", site)]]),
       true_r  = num(.data[[sprintf("%s_DendroTape_RScript_Diameter_mm", site)]]),
-      med_py  = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", site)]]),
-      med_r   = num(.data[[sprintf("%s_BinFixedAngle_RScript_Diameter_mm", site)]])
+      med_py  = num(.data[[sprintf("%s_%s_pythonScript_Diameter_mm", site, stem)]]),
+      med_r   = num(.data[[sprintf("%s_%s_RScript_Diameter_mm", site, stem)]]),
+      true_edge = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", site)]]),
+      bin_edge  = num(.data[[sprintf("%s_%s_MaxEdgeFrac", site, stem)]])
     )
 }
-pairs_2deg <- bind_rows(lapply(c("TopFlag", "LowerFlag", "Dendrometer"), site_pair)) %>%
+ALL_SITES <- c("TopFlag", "LowerFlag", "PaintMarker", "Dendrometer")
+pairs_2deg <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinFixedAngle")) %>%
   filter(!is.na(true_py), !is.na(med_py))
-
-# 10mm variant -- Dendrometer-site columns only exist in the anonymized
-# sheet for this bin width (see header).
-pairs_10mm <- raw %>%
-  transmute(
-    tree = Tree_Tag, site = "Dendrometer",
-    true_py = num(Dendrometer_DendroTape_pythonScript_Diameter_mm),
-    true_r  = num(Dendrometer_DendroTape_RScript_Diameter_mm),
-    med_py  = num(Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm),
-    med_r   = num(Dendrometer_BinMeanDistanceRadius_RScript_Diameter_mm)
-  ) %>%
+pairs_10mm <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinMeanDistanceRadius")) %>%
   filter(!is.na(true_py), !is.na(med_py))
 
 # Python vs R cross-check (console only -- not written anywhere): confirms
@@ -416,12 +424,14 @@ pair_check(pairs_10mm, "med_py",  "med_r",  "bin_hull_MeanDistanceRadius")
 
 to_agreement <- function(df, variant) {
   df %>% transmute(tree, site, variant = variant, true_est = true_py, bin_est = med_py,
-                    diff_mm = bin_est - true_est, pct_diff = 100 * diff_mm / true_est)
+                    diff_mm = bin_est - true_est, pct_diff = 100 * diff_mm / true_est,
+                    true_flagged = !is.na(true_edge) & true_edge >= FLAG_THRESHOLD,
+                    bin_flagged  = !is.na(bin_edge)  & bin_edge  >= FLAG_THRESHOLD)
 }
 agreement <- bind_rows(to_agreement(pairs_2deg, "FixedAngle"), to_agreement(pairs_10mm, "MeanDistanceRadius"))
 
 if (nrow(agreement) == 0) {
-  cat("\n[Part 2 skipped] need both a true-hull and a binned-hull value (anonymized sheet) for at least one site/variant.\n")
+  cat("\n[Part 2 skipped] need both a true-hull and a binned-hull value for at least one site/variant.\n")
 } else {
   write.csv(agreement, file.path(outdir, "hull_comparison_method_agreement_pertree.csv"), row.names = FALSE)
 
@@ -456,6 +466,6 @@ if (nrow(agreement) == 0) {
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_method_agreement_scatter.png"), p3, width = 7, height = 6, dpi = 130)
 
-  cat(sprintf("\nWrote %d rows -> results/hull_comparison_method_agreement_{pertree,summary}.csv and\n  results/plots/hull_comparison_method_agreement_scatter.png\n",
-              nrow(agreement)))
+  cat(sprintf("\nWrote %d rows -> %s/hull_comparison_method_agreement_{pertree,summary}.csv and\n  %s/hull_comparison_method_agreement_scatter.png\n",
+              nrow(agreement), outdir, plotdir))
 }

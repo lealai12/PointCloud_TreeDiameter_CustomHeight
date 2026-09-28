@@ -12,10 +12,10 @@
 # actually produce, across every site processed so far" -- a demonstration/
 # coverage view, not a new accuracy result.
 #
-# ANONYMIZED SHEET ONLY -- same rule as validate_field_accuracy.R
+# WORKING SHEET ONLY, same as validate_field_accuracy.R
 # -------------------------------------------------------------------
-# Reads ONLY field_measurements_Anon.xlsx. Output goes to results/, same as
-# every other output in this repo.
+# Reads only the real-tag working sheet. Output goes to results/ (or
+# DAB_RESULTS), same as every other output in this repo.
 # =============================================================================
 
 suppressMessages({ library(dplyr); library(tidyr); library(ggplot2); library(readxl) })
@@ -26,8 +26,8 @@ suppressMessages({ library(dplyr); library(tidyr); library(ggplot2); library(rea
 # Same role as the CONFIG block at the top of every measurement script
 # (fit_dab.py/.R etc.): the one place a future researcher with a different
 # sheet location has to edit. `sheet` is deliberately an absolute path to the
-# LOCAL working root, not a repo-relative one -- the anonymized workbook lives
-# outside version control and is never committed.
+# LOCAL working root, not a repo-relative one. The working sheet holds real
+# tree tags, lives outside version control and is never committed.
 #
 # Note the project's standing advice (CLAUDE.md): every script in this repo
 # hardcodes this same path, so recreating that folder structure locally is
@@ -44,31 +44,39 @@ suppressMessages({ library(dplyr); library(tidyr); library(ggplot2); library(rea
 # "%s_BinMeanDistanceRadius_pythonScript_Diameter_mm" and update this script's
 # name, title and subtitle to match.
 #
-# Reads ONLY the anonymized sheet, so output is anonymization-safe and belongs
-# in the tracked results/ folder. Run from the repo root.
+# `outdir` defaults to the repo-relative results/ folder, and the DAB_RESULTS
+# env var overrides it. results/ is tracked, so what this writes there goes
+# public when the repo is pushed. Run from the repo root.
 # =============================================================================
 sheet   <- Sys.getenv("DAB_SHEET",
-                      "C:/Projects/LiDAR_Project/field_measurements_Anon.xlsx")
+                      "C:/Projects/LiDAR_Project/Working_Steps/field_measurements_Draft2_Working.xlsx")
 SITE_COLUMN_PATTERN <- "%s_BinFixedAngle_pythonScript_Diameter_mm"   # 2-degree bin
-outdir  <- "results"
+outdir  <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
+EXCLUDE_SENSITIVITY <- c("3853")   # trees dropped from the sensitivity row (3853 = first-pass code 17, scan hole over the site)
+FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
+
+# field reading column for each site with ground truth (NA at the other sites)
+FIELD_COL <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
 
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
-sites <- c("TopFlag", "LowerFlag", "Dendrometer")
+sites <- c("TopFlag", "LowerFlag", "PaintMarker", "Dendrometer")
 
 demo <- bind_rows(lapply(sites, function(s) {
+  # looked up outside transmute(): NA at sites with no field column
+  field <- if (s %in% names(FIELD_COL)) suppressWarnings(as.numeric(raw[[FIELD_COL[[s]]]])) else NA_real_
   raw %>%
     transmute(tree_id = Tree_Tag,
               site = s,
               height_m = .data[[sprintf("Y_value_%s", s)]],
               diameter_mm = .data[[sprintf(SITE_COLUMN_PATTERN, s)]],
-              dendrometer_reading_mm = if (s == "Dendrometer") suppressWarnings(as.numeric(Dendrometer_FieldDiameter)) else NA_real_,
-              has_dendrometer = has_dendrometer)
+              field_reading_mm = field,
+              flagged = suppressWarnings(as.numeric(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]])) >= FLAG_THRESHOLD)
 })) %>%
   filter(!is.na(diameter_mm)) %>%
   arrange(diameter_mm) %>%
@@ -82,11 +90,12 @@ print(as.data.frame(demo), row.names = FALSE)
 # --------------------------------------------------------------------- figure
 p <- ggplot(demo, aes(tree_id, diameter_mm, colour = site)) +
   geom_point(size = 3) +
-  scale_colour_manual(values = c(LowerFlag = "#0072B2", Dendrometer = "#009E73", TopFlag = "#E69F00"),
+  scale_colour_manual(values = c(LowerFlag = "#0072B2", Dendrometer = "#009E73", TopFlag = "#E69F00",
+                                 PaintMarker = "#CC79A7"),
                        name = "Site") +
   labs(title = "Binned hull, fixed angle -- diameter at every processed site",
-       subtitle = "Applied to every processed tree/site, not just the field-validated subset used to check it\n(2° and 10mm arc-length bins scored virtually identically here -- a result specific to this dataset)",
-       x = "Tree (anonymized code)", y = "Binned-hull equivalent diameter (mm)") +
+       subtitle = "Applied to every processed tree/site, not just the field-validated subset used to check it\n(first pass: 2° and 10mm arc-length bins scored virtually identically here -- a result specific to this dataset)",
+       x = "Tree tag", y = "Binned-hull equivalent diameter (mm)") +
   theme_minimal(base_size = 11) +
   theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
