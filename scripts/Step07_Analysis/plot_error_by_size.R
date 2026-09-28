@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 # =============================================================================
 # plot_error_by_size.R -- one box plot: signed % error vs. field reading,
-# every method, split by site: DBH at the Dendrometer site vs. DAB
-# (above-buttress) at the PaintMarker site.
+# every method, split by measurement type: DBH (the Dendrometer site and the
+# breast-height paint marks) vs. DAB (above-buttress paint marks).
 #
 # validate_field_accuracy.R and compare_hull_methods.R each report per-tree
 # error and size-stratified summary stats, but neither puts every method
@@ -11,10 +11,12 @@
 # measurement, no new metric: same errors those two scripts already compute,
 # just all five methods in one plot.
 #
-# GROUPING: by site, not a diameter threshold. The split that actually
-# matters here is WHY a tree is hard to measure. The Dendrometer site is a
-# real band at breast height (standard DBH, no buttress problem), and the
-# PaintMarker site is a buttressed trunk measured above the buttress (DAB).
+# GROUPING: by measurement type, not a diameter threshold. The split that
+# actually matters here is WHY a tree is hard to measure. DBH is the
+# Dendrometer site plus the PaintMarker site on the PAINT_DBH_TREES (CONFIG),
+# whose paint mark sits at breast height below any buttress. DAB is every other
+# PaintMarker site, a buttressed trunk measured above the buttress.
+# Tree + site pairs in EXCLUDE_SITES (CONFIG) are left out.
 # Rows are keyed by tree + site, since a tree can have a reading at both.
 # (An earlier version of this script used a raw <1000mm/>=1000mm threshold,
 # which is a proxy, not the actual reason these trees are hard.)
@@ -51,12 +53,13 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- c("3853")   # trees dropped from the sensitivity row (3853 = first-pass code 17, scan hole over the site)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
+PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
+EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
 
 # field reading column for each site with ground truth
 FIELD_COL <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
 
 num   <- function(x) suppressWarnings(as.numeric(x))
-GROSS <- 0.5     # |error|/reading above this = likely data-entry/registration error, excluded
 
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
@@ -82,7 +85,8 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
     edge_md = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]])
   ))) %>%
   filter(!is.na(reading)) %>%
-  mutate(size = if_else(site == "Dendrometer", "DBH (dendrometer)", "DAB (above buttress)"))
+  filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
+  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"))
 
 if (nrow(acc) == 0) {
   cat("[error-by-size skipped] no field readings in the sheet yet\n")
@@ -95,7 +99,6 @@ long <- acc %>%
   filter(!is.na(est)) %>%
   mutate(err   = est - reading,
          pct   = 100 * err / reading,
-         gross = abs(err) / reading > GROSS,
          # ForestScanner doesn't use the ring, so it is never flagged
          edge  = case_when(method %in% c("Python_true_hull", "R") ~ edge_dt,
                            method == "bin_hull_FixedAngle"         ~ edge_fa,
@@ -103,11 +106,9 @@ long <- acc %>%
          flagged = !is.na(edge) & edge >= FLAG_THRESHOLD,
          method_label = relabel_method(method))
 
-n_excluded <- sum(long$gross)
-long_clean <- long %>% filter(!gross)
+long_clean <- long
 
-cat(sprintf("Error-by-size box plot: %d rows (%d gross outliers excluded).\n",
-            nrow(long_clean), n_excluded))
+cat(sprintf("Error-by-size box plot: %d rows.\n", nrow(long_clean)))
 cat("\n-- n per method x size --\n")
 print(as.data.frame(long_clean %>% count(method_label, size)), row.names = FALSE)
 
@@ -124,12 +125,11 @@ p <- ggplot(long_clean, aes(method_label, pct, fill = size)) +
              position = position_jitterdodge(jitter.width = 0.12, dodge.width = 0.7),
              size = 1.8, alpha = 0.8) +
   scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 1), guide = "none") +
-  scale_fill_manual(values = c("DBH (dendrometer)" = "#56B4E9", "DAB (above buttress)" = "#D55E00"),
+  scale_fill_manual(values = c("DBH" = "#56B4E9", "DAB (above buttress)" = "#D55E00"),
                      name = "Measurement type") +
   labs(title = "Signed Percent Error vs. Field Reading, by Method and Measurement Type",
-       subtitle = sprintf("Every method compared against field reading, dendrometer and paint-marker sites\n(n=%d tree-sites; %d gross data-entry outlier%s excluded). Open markers = flagged ring (MaxEdgeFrac >= %.1f)",
-                           n_distinct(paste(long_clean$tree, long_clean$site)), n_excluded,
-                           if (n_excluded == 1) "" else "s", FLAG_THRESHOLD),
+       subtitle = sprintf("Every method compared against field reading, dendrometer and paint-marker sites\n(n=%d tree-sites). Open markers = flagged ring (MaxEdgeFrac >= %.1f)",
+                           n_distinct(paste(long_clean$tree, long_clean$site)), FLAG_THRESHOLD),
        x = NULL, y = "Error  (est - reading) / reading  [%]") +
   theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
