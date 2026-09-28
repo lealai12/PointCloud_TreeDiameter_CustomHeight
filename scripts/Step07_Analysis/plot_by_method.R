@@ -39,7 +39,7 @@ sheet   <- Sys.getenv("DAB_SHEET",
 outdir  <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
-EXCLUDE_SENSITIVITY <- c("3853")   # trees dropped from the sensitivity average and the Bland-Altman limits (3853 = first-pass code 17, scan hole over the site)
+EXCLUDE_SENSITIVITY <- character(0)   # trees dropped from an extra average bar and the Bland-Altman limits, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
 EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
@@ -47,6 +47,7 @@ EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every a
 # field reading column for each site with ground truth, and its short label
 FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
 SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
 EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
 num <- function(x) suppressWarnings(as.numeric(x))
@@ -121,12 +122,12 @@ save_plot(p_scatter, "by_method_scatter.png", 11, 8)
 
 # ---- per tree + site plots: shared tree order, two average entries per panel
 tree_order  <- long %>% distinct(tree_label, reading) %>% arrange(reading) %>% pull(tree_label)
-level_order <- c(tree_order, "Average", sprintf("Average (%s)", EXCL_LABEL))
+level_order <- c(tree_order, "Average", if (HAS_SENS) sprintf("Average (%s)", EXCL_LABEL))
 averages <- function(col) {
   bind_rows(
     long %>% group_by(method, method_label) %>%
       summarise(value = mean(.data[[col]]), .groups = "drop") %>% mutate(tree_label = "Average"),
-    long %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method, method_label) %>%
+    if (HAS_SENS) long %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method, method_label) %>%
       summarise(value = mean(.data[[col]]), .groups = "drop") %>%
       mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   )
@@ -188,7 +189,8 @@ p_box <- ggplot(long, aes(size, pct, fill = size)) +
 save_plot(p_box, "by_method_boxplot.png", 11, 8)
 
 # ---- Bland-Altman: each panel gets its own bias and 95% limits, computed
-# excl. EXCLUDE_SENSITIVITY like the grouped figure in compare_hull_methods.R.
+# without the EXCLUDE_SENSITIVITY trees (every tree when it is empty), like the
+# grouped figure in compare_hull_methods.R.
 # Every point is still drawn.
 ba_data  <- long %>% mutate(mean_est = (est + reading) / 2)
 ba_lines <- ba_data %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>%
@@ -204,8 +206,8 @@ p_ba <- ggplot(ba_data, aes(mean_est, err, colour = method_label, shape = flagge
   facet_wrap(~ method_label, ncol = 3, scales = "free_y") +
   scale_colour_method(guide = "none") + FLAG_SHAPE +
   labs(title = "Agreement with Field Reading (Bland-Altman), by Method",
-       subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement (", EXCL_LABEL,
-                         "), ", flag_note, ". The y axis differs per panel."),
+       subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement",
+                         if (HAS_SENS) paste0(" (", EXCL_LABEL, ")"), ", ", flag_note, ". The y axis differs per panel."),
        x = "Mean of estimate and reading (mm)", y = "Estimate - reading (mm)") +
   theme_minimal(base_size = 11)
 save_plot(p_ba, "by_method_bland_altman.png", 11, 8)

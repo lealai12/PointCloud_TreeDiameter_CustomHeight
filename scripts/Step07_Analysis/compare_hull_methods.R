@@ -91,7 +91,7 @@ sheet   <- Sys.getenv("DAB_SHEET",
 outdir  <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
-EXCLUDE_SENSITIVITY <- c("3853")   # trees dropped from the sensitivity row (3853 = first-pass code 17, scan hole over the site)
+EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
 EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
@@ -99,6 +99,7 @@ EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every a
 # field reading column for each site with ground truth, and its short label
 FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
 SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
 EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
 num   <- function(x) suppressWarnings(as.numeric(x))
@@ -213,7 +214,7 @@ if (nrow(long) == 0) {
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
-    summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
+    if (HAS_SENS) summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
     summ(long %>% filter(!flag_drop), "excl. flagged rings"),
     if (n_distinct(long$size) > 1) by_size else NULL
   )
@@ -258,7 +259,7 @@ if (nrow(long) == 0) {
   # ---- FIG 2b: Bland-Altman, the three hull arms only (no ForestScanner --
   # this figure is about agreement between the hull methods and the field
   # reading, not another vs.-reading scatter). Bias/limits of agreement
-  # computed excl. the EXCLUDE_SENSITIVITY trees, for Convex hull and Binned
+  # computed without the EXCLUDE_SENSITIVITY trees (every tree when it is empty), for Convex hull and Binned
   # hull 2deg only (the two arms with the biggest spread difference).
   ba_stats <- function(m) {
     d <- long %>% filter(method == m, !tree %in% EXCLUDE_SENSITIVITY)
@@ -283,8 +284,8 @@ if (nrow(long) == 0) {
               show.legend = FALSE) +
     scale_colour_method() + scale_shape_method() +
     labs(title = "Agreement with Field Reading (Bland-Altman)",
-         subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Binned hull, fixed angle; ",
-                           EXCL_LABEL, ")"),
+         subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Binned hull, fixed angle",
+                           if (HAS_SENS) paste0("; ", EXCL_LABEL), ")"),
          x = "Mean of estimate and reading (mm)", y = "Estimate − reading (mm)") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, "hull_comparison_bland_altman.png"), p_fig2b, width = 8, height = 6, dpi = 130)
@@ -299,7 +300,7 @@ if (nrow(long) == 0) {
   tree_labels_ordered <- long_with_fs %>%
     distinct(tree, reading, tree_label) %>% arrange(reading)
   n_trees <- nrow(tree_labels_ordered)
-  level_order  <- c(tree_labels_ordered$tree_label, "Average", sprintf("Average (%s)", EXCL_LABEL))
+  level_order  <- c(tree_labels_ordered$tree_label, "Average", if (HAS_SENS) sprintf("Average (%s)", EXCL_LABEL))
   boundary_avg <- n_trees + 0.5   # rule between the last tree and the Average bars
 
   # ---- FIG 3: signed % error, four arms, revises the hull-only error plot
@@ -311,7 +312,7 @@ if (nrow(long) == 0) {
   avg_pct_excl   <- long_with_fs %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>% mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   p3_data <- bind_rows(long_with_fs %>% select(tree_label, method, pct),
-                       avg_pct, avg_pct_excl) %>%
+                       avg_pct, if (HAS_SENS) avg_pct_excl) %>%
     mutate(method_label = relabel_method(method),
            tree_label    = factor(tree_label, levels = level_order))
 
@@ -348,7 +349,7 @@ if (nrow(long) == 0) {
     sprintf("ForestScanner (in-app) is left out of this figure. Its errors run from %.0f to %.0f mm (mean %.0f mm, n = %d tree-sites),\nsee field_accuracy_all_sites_pertree.csv for each value.",
             min(fs_long$err), max(fs_long$err), mean(fs_long$err), nrow(fs_long)) else NULL
   p3b_data <- bind_rows(long %>% select(tree_label, method, err),
-                        avg_err, avg_err_excl) %>%
+                        avg_err, if (HAS_SENS) avg_err_excl) %>%
     mutate(method_label = relabel_method(method),
            tree_label    = factor(tree_label, levels = level_order))
 

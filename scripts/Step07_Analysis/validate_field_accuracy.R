@@ -25,7 +25,7 @@
 #
 # Notes:
 #   - Trees in EXCLUDE_SENSITIVITY (CONFIG) stay in the headline metrics, and
-#     a sensitivity row excluding them is also reported.
+#     a sensitivity row excluding them is also reported. Empty = no such row.
 #   - Flagged rings (MaxEdgeFrac >= FLAG_THRESHOLD) stay in the headline
 #     metrics, and a sensitivity row excluding them is also reported. The hull
 #     and ITSMe both use the DendroTape flag, since they measure the same ring.
@@ -70,7 +70,7 @@ sheet  <- Sys.getenv("DAB_SHEET",
 outdir <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
-EXCLUDE_SENSITIVITY <- c("3853")   # trees dropped from the sensitivity row (3853 = first-pass code 17, scan hole over the site)
+EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
 EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
@@ -78,6 +78,7 @@ EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every a
 # field reading column for each site with ground truth, and its short label
 FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
 SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
 EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
 num   <- function(x) suppressWarnings(as.numeric(x))
@@ -153,7 +154,7 @@ run_scope <- function(acc, scope, title) {
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
-    summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
+    if (HAS_SENS) summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
     summ(long %>% filter(!flag_drop), "excl. flagged rings"),
     if (n_distinct(acc$size) > 1) by_size else NULL
   )
@@ -189,7 +190,7 @@ run_scope <- function(acc, scope, title) {
 
   # append two summary bars per method at the far right of the x-axis: the
   # mean of exactly the bars plotted (every tree, EXCLUDE_SENSITIVITY
-  # included), and a second mean excluding the EXCLUDE_SENSITIVITY trees too,
+  # included), and, if EXCLUDE_SENSITIVITY isn't empty, a second mean without them,
   # so the average can be seen with and without them.
   # Large finite `reading` sentinels (not Inf) so reorder() can still tell
   # the two summary bars apart and order them consistently after the trees.
@@ -200,7 +201,7 @@ run_scope <- function(acc, scope, title) {
     summarise(pct = mean(pct), .groups = "drop") %>%
     mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL), reading = 2e6)
   p2_data <- bind_rows(long %>% select(tree_label, reading, method, pct),
-                       avg_pct, avg_pct_excl) %>%
+                       avg_pct, if (HAS_SENS) avg_pct_excl) %>%
     mutate(method_label = relabel_method(method))
 
   # Extra top headroom (12% instead of ggplot's 5% default): when one tree's

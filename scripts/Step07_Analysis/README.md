@@ -26,7 +26,7 @@ Steps:
 
 Note: DBH vs DAB is set by measurement type, not a diameter threshold. DBH is the Dendrometer site plus the PaintMarker site on the PAINT_DBH_TREES, whose paint mark sits at breast height below any buttress. DAB is every other PaintMarker site, measured above the buttress.
 
-Note: No row is dropped for having a large error. The headline metrics use every tree-site, flagged rings included. Each summary adds two sensitivity rows, one without the trees in EXCLUDE_SENSITIVITY and one without flagged rings (MaxEdgeFrac >= 0.5). Tree + site pairs in EXCLUDE_SITES are left out of everything.
+Note: No row is dropped for having a large error. The headline metrics use every tree-site, flagged rings included. Each summary adds a sensitivity row without flagged rings (MaxEdgeFrac >= 0.5), and one without the trees in EXCLUDE_SENSITIVITY if that list isn't empty. Tree + site pairs in EXCLUDE_SITES are left out of everything.
 
 Note: ForestScanner is left out of hull_comparison_vs_field_reading_error_mm.png, since its errors run to over a metre and would stretch the axis. Its range, mean and count are printed in the figure caption.
 
