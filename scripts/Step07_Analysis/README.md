@@ -10,7 +10,7 @@ The scripts, and what each one answers:
 - plot_error_by_size.R: signed % error of every method, DBH vs DAB. results\error_by_size_pertree.csv, results\plots\error_by_size_boxplot.png
 - bin_fixed_angle_demo.R: the fixed-angle binned-hull diameter at every processed site, not just the validated ones. results\bin_fixed_angle_demo_all_sites.{csv,png}
 - plot_by_method.R: the figures above split out, one panel per method, all five methods. results\plots\by_method_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png
-- compare_fig_notes.R: at the buttressed (DAB) paint sites, error for trees with a fig noted in the BCI census notes vs. trees without, in mm and %. results\fig_notes_{pertree,summary}.csv, results\plots\fig_notes_error.png
+- compare_fig_notes.R: at the buttressed (DAB) paint sites, error for trees with a fig noted in the BCI census notes vs. trees without, in mm and %. results\fig_notes_{pertree,summary}.csv, results\plots\fig_notes_error.png. Also the signed % error bar chart without the fig paint sites (every dendrometer site plus the paint sites on trees without a fig), the four cloud methods, with the mm error on each bar. results\plots\field_accuracy_no_fig_sites_error.png
 
 Steps:
 1. Enter the field readings in the sheet, in mm (Dendrometer_FieldDiameter, PaintMarker_FieldDiameter_mm), and close it in Excel.

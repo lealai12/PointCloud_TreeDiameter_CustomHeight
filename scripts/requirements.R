@@ -24,6 +24,11 @@ install.packages(c("readxl", "dplyr", "tidyr", "ggplot2", "scales", "Rvcg", "rem
 # build fails.
 install.packages("lidR", repos = c("https://r-lidar.r-universe.dev", "https://cloud.r-project.org"))
 
+# Gotcha: install_github downloads the whole ITSMe repo (~53 MB), which R's
+# default 60 s download timeout cuts off on a slow connection. Raise it first.
+# If it still fails, download the repo tarball by hand and run
+# remotes::install_local("<file>.tar.gz"). ITSMe is pure R, so no Rtools needed.
+options(timeout = max(600, getOption("timeout")))
 remotes::install_github("lmterryn/ITSMe")   # also needs Rvcg, already installed above
 
 cat("\nDone. Verify with:\n",
