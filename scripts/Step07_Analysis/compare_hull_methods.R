@@ -445,6 +445,18 @@ pair_check(pairs_2deg, "true_py", "true_r", "true_hull")
 pair_check(pairs_2deg, "med_py",  "med_r",  "bin_hull_FixedAngle")
 pair_check(pairs_10mm, "med_py",  "med_r",  "bin_hull_MeanDistanceRadius")
 
+# ITSMe: the Python port (dab_itsme_concave_hull.py) against the R package run
+# (dab_itsme_concave_hull.R). Both are written to the sheet in tenths of a mm,
+# and the port rounds an occasional exact-tie coordinate the other way, so up
+# to about 0.1 mm here is expected. Skipped if the Python columns aren't there.
+itsme_pairs <- bind_rows(lapply(ALL_SITES, function(site) {
+  py_col <- sprintf("%s_DabItsme_ConcaveHull_pythonScript_Diameter_mm", site)
+  r_col  <- sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", site)
+  if (!all(c(py_col, r_col) %in% names(raw))) return(NULL)
+  data.frame(itsme_py = num(raw[[py_col]]), itsme_r = num(raw[[r_col]]))
+}))
+if (nrow(itsme_pairs) > 0) pair_check(itsme_pairs, "itsme_py", "itsme_r", "itsme_concave")
+
 to_agreement <- function(df, variant) {
   df %>% transmute(tree, site, variant = variant, true_est = true_py, bin_est = med_py,
                     diff_mm = bin_est - true_est, pct_diff = 100 * diff_mm / true_est,
