@@ -1,7 +1,8 @@
 # =============================================================================
 # plot_style.R -- shared method vocabulary/colour/shape lookup for
 # results/plots/*.png, sourced by validate_field_accuracy.R,
-# compare_hull_methods.R and plot_error_by_size.R so a colour and a name mean
+# compare_hull_methods.R, plot_error_by_size.R, plot_by_method.R and
+# compare_fig_notes.R so a colour and a name mean
 # the same thing in every figure. (bin_fixed_angle_demo.R does not
 # source this -- it colours by SITE, not by method, and defines its own scale.) Revised 2026-08-02 per the plot-cleanup spec ("one method
 # vocabulary everywhere" / "one colour per method, fixed across figures").
@@ -29,12 +30,14 @@ METHOD_LABELS <- c(
   bin_hull_FixedAngle     = "Binned hull, fixed angle",
   Python_bin_hull_FixedAngle       = "Binned hull, fixed angle",
   bin_hull_MeanDistanceRadius         = "Binned hull, mean-distance radius",
-  Python_bin_hull_MeanDistanceRadius  = "Binned hull, mean-distance radius"
+  Python_bin_hull_MeanDistanceRadius  = "Binned hull, mean-distance radius",
+  Circle                   = "Circle fit (least squares)"   # circle_fit_slices.R, secondary method (2026-09-28)
 )
 
 # canonical legend/plot order -- identical across every figure
 METHOD_ORDER <- c("ForestScanner (in-app)", "Convex hull", "Binned hull, fixed angle",
-                   "Binned hull, mean-distance radius", "ITSMe concave hull")
+                   "Binned hull, mean-distance radius", "ITSMe concave hull",
+                   "Circle fit (least squares)")
 
 # Okabe-Ito colourblind-safe palette, one fixed colour per method
 METHOD_COLORS <- c(
@@ -42,7 +45,8 @@ METHOD_COLORS <- c(
   "Convex hull"            = "#0072B2",
   "Binned hull, fixed angle"        = "#009E73",
   "Binned hull, mean-distance radius"     = "#CC79A7",
-  "ITSMe concave hull"     = "#D55E00"
+  "ITSMe concave hull"     = "#D55E00",
+  "Circle fit (least squares)" = "#000000"
 )
 
 # one shape per method too, so overlapping points in scatters are still
@@ -52,7 +56,8 @@ METHOD_SHAPES <- c(
   "Convex hull"            = 16,  # filled circle
   "Binned hull, fixed angle"        = 17,  # filled triangle
   "Binned hull, mean-distance radius"     = 18,  # filled diamond
-  "ITSMe concave hull"     = 8    # star
+  "ITSMe concave hull"     = 8,   # star
+  "Circle fit (least squares)" = 4   # x
 )
 
 # Map a vector of a script's internal method values to the unified display

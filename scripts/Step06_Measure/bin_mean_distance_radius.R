@@ -69,10 +69,13 @@
 # around.
 #
 # Gaps: an angular bin with zero points (occlusion, or a bin narrower than
-# the point spacing) has no value. Its radius is filled by circular linear
-# interpolation between the nearest populated bins on either side, so the
-# polygon stays closed; n_bins_populated / max_gap_deg say how much of the
-# ring is real vs interpolated, and coverage_deg (identical definition to
+# the point spacing) has no value, and is skipped: the polygon runs in a
+# straight line from the last populated bin before the gap to the first one
+# after it (DJ, 2026-09-30, since an empty run is usually a crevice the tape
+# bridges). Until 2026-09-30 empty bins were filled by circular interpolation
+# of the radius, which bowed slightly outward across a gap. n_bins_populated /
+# max_gap_deg say how much of the ring is measured vs bridged, and
+# coverage_deg (identical definition to
 # dendro_tape.R, computed on the RAW points, not the bins) plus max_edge_frac
 # on the final hull gate bin_hull_valid exactly as in dendro_tape.R.
 #
@@ -128,7 +131,7 @@ PERCENTILE <- 90                         # radius percentile taken inside each a
                                          # method). Higher sits nearer the outer bark surface, where
                                          # a tape rides. Chosen in advance (2026-09-22), not tuned.
 MIN_POINTS_PER_BIN <- 10                 # QC: a bin with fewer points than this is treated as EMPTY
-                                         # and filled from its neighbours, like a bin with no points.
+                                         # and skipped, like a bin with no points.
                                          # Counted in n_bins_sparse. 1 = use any bin with a point.
 
 MAX_EDGE_FRAC <- 0.5                            # same guard as dendro_tape.R
@@ -201,7 +204,7 @@ plane_xy_to_3d <- function(xy2, up_val, up_idx, plane_idx) {
 }
 
 # Longest run of consecutive empty bins, circular (wraps past the last bin
-# back to the first) -- how much of the ring is interpolated, not measured.
+# back to the first) -- how much of the ring is bridged, not measured.
 max_empty_run <- function(pop) {
   n <- length(pop)
   if (all(pop)) return(0L)
@@ -270,18 +273,17 @@ measure_one <- function(path, tree_id, up_axis, height, thickness, bin_width_mm,
     stop(sprintf("%s: no populated angular bins -- too few/too clustered points.", path))
   }
 
-  # Circular linear interpolation for empty bins: extend the populated
-  # (angle, radius) samples by +/- 2*pi so approx() wraps correctly across the
-  # 0/2*pi seam, then fill every bin center.
+  if (n_populated < 3) {
+    stop(sprintf("%s: only %d populated angular bins, need at least 3 to build a surface polygon.",
+                 path, n_populated))
+  }
+
+  # Empty bins are skipped, not filled: the polygon is the populated bins
+  # only, in angular order (bin_centers is already increasing), so it runs in
+  # a straight line across any run of empty bins, as a tape would.
   pop_ang <- bin_centers[populated]
   pop_r   <- bin_r[populated]
-  ord     <- order(pop_ang)
-  pop_ang <- pop_ang[ord]; pop_r <- pop_r[ord]
-  ext_ang <- c(pop_ang - 2 * pi, pop_ang, pop_ang + 2 * pi)
-  ext_r   <- rep(pop_r, 3)
-  filled_r <- approx(ext_ang, ext_r, xout = bin_centers, rule = 2)$y
-
-  poly_xy <- cbind(cx + filled_r * cos(bin_centers), cy + filled_r * sin(bin_centers))
+  poly_xy <- cbind(cx + pop_r * cos(pop_ang), cy + pop_r * sin(pop_ang))
   max_gap_deg <- max_empty_run(populated) * bin_w_rad * 180 / pi
 
   # percentile polygon perimeter (informational -- NOT the primary metric)

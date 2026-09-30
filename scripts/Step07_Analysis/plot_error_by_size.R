@@ -9,7 +9,7 @@
 # side by side on one axis to compare the SHAPE of each method's error
 # distribution across the split -- that's what this is for. No new
 # measurement, no new metric: same errors those two scripts already compute,
-# just all five methods in one plot.
+# just all five methods plus the circle fit (circle_fit_slices.R, run it first) in one plot.
 #
 # GROUPING: by measurement type, not a diameter threshold. The split that
 # actually matters here is WHY a tree is hard to measure. DBH is the
@@ -54,6 +54,7 @@ dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
+CIRCLE_CSV <- file.path(outdir, "circle_fit_slices.csv")   # circle fit per slice, written by circle_fit_slices.R (run it first)
 EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
 
 # field reading column for each site with ground truth
@@ -69,6 +70,14 @@ raw <- read_excel(sheet) %>%
 # pivot column names use plot_style.R's internal method keys (relabel_method()
 # maps them to the shared display labels below) so this figure's colours and
 # names match every other results/plots/*.png in this repo.
+# circle fit per tree + site, from circle_fit_slices.R (run it first)
+circle <- if (file.exists(CIRCLE_CSV)) {
+  read.csv(CIRCLE_CSV, colClasses = c(tree = "character")) %>% select(tree, site, Circle = circle_diameter_mm)
+} else {
+  cat(sprintf("[note] %s not found: run circle_fit_slices.R first. The circle fit is left out.\n", CIRCLE_CSV))
+  data.frame(tree = character(), site = character(), Circle = numeric())
+}
+
 acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   transmute(
     tree                  = Tree_Tag,
@@ -86,7 +95,8 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   ))) %>%
   filter(!is.na(reading)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
-  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"))
+  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)")) %>%
+  left_join(circle, by = c("tree", "site"))
 
 if (nrow(acc) == 0) {
   cat("[error-by-size skipped] no field readings in the sheet yet\n")
@@ -94,13 +104,13 @@ if (nrow(acc) == 0) {
 }
 
 long <- acc %>%
-  pivot_longer(c(ForestScanner, Python_true_hull, R, bin_hull_FixedAngle, bin_hull_MeanDistanceRadius),
+  pivot_longer(c(ForestScanner, Python_true_hull, R, bin_hull_FixedAngle, bin_hull_MeanDistanceRadius, Circle),
                names_to = "method", values_to = "est") %>%
   filter(!is.na(est)) %>%
   mutate(err   = est - reading,
          pct   = 100 * err / reading,
          # ForestScanner doesn't use the ring, so it is never flagged
-         edge  = case_when(method %in% c("Python_true_hull", "R") ~ edge_dt,
+         edge  = case_when(method %in% c("Python_true_hull", "R", "Circle") ~ edge_dt,
                            method == "bin_hull_FixedAngle"         ~ edge_fa,
                            method == "bin_hull_MeanDistanceRadius" ~ edge_md),
          flagged = !is.na(edge) & edge >= FLAG_THRESHOLD,

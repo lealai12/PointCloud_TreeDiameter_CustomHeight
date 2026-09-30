@@ -10,12 +10,13 @@
 # the fig is in the ring: that has to be checked in the RGB slices.
 #
 # PART 1 -- fig noted vs. no fig noted, at the PaintMarker site on every tree
-# NOT in PAINT_DBH_TREES (the above-buttress paint marks). All five methods.
+# NOT in PAINT_DBH_TREES (the above-buttress paint marks). All five methods
+# plus the circle fit (circle_fit_slices.R, run it first).
 #
 # PART 2 -- field_accuracy_all_sites_error.png without the fig paint sites:
 # every Dendrometer site, plus the PaintMarker site on every tree not in
 # FIG_TREES. Signed % bars per tree + site with the mm error printed on each,
-# the four cloud methods. A Dendrometer site stays in even on a fig tree
+# the four cloud methods plus the circle fit. A Dendrometer site stays in even on a fig tree
 # (3853), since the fig note there is about the band.
 #
 # Both parts drop EXCLUDE_SITES. No row is dropped for having a large error.
@@ -47,6 +48,7 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 FLAG_THRESHOLD  <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: DBH, not DAB. Left out of Part 1, which compares DAB paint sites only (DJ, 2026-09-28)
+CIRCLE_CSV <- file.path(outdir, "circle_fit_slices.csv")   # circle fit per slice, written by circle_fit_slices.R (run it first)
 EXCLUDE_SITES   <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
 # Trees with a fig noted in the BCI 50ha dendrometer census Notes
 # (BCI50ha_20tags_paintDiam_fullrecord.xlsx, sheet "Dendrometer Data"):
@@ -66,6 +68,14 @@ raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
+
+# circle fit per tree + site, from circle_fit_slices.R (run it first)
+circle <- if (file.exists(CIRCLE_CSV)) {
+  read.csv(CIRCLE_CSV, colClasses = c(tree = "character")) %>% select(tree, site, Circle = circle_diameter_mm)
+} else {
+  cat(sprintf("[note] %s not found: run circle_fit_slices.R first. The circle fit is left out.\n", CIRCLE_CSV))
+  data.frame(tree = character(), site = character(), Circle = numeric())
+}
 
 acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   transmute(
@@ -87,7 +97,8 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   filter(!is.na(reading), !is.na(Python_true_hull)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
   mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"),
-         fig  = factor(if_else(tree %in% FIG_TREES, "Fig noted", "No fig noted"), c("Fig noted", "No fig noted")))
+         fig  = factor(if_else(tree %in% FIG_TREES, "Fig noted", "No fig noted"), c("Fig noted", "No fig noted"))) %>%
+  left_join(circle, by = c("tree", "site"))
 
 if (nrow(acc_all) == 0) {
   cat("[fig-notes comparison skipped] no field readings in the sheet yet\n")
@@ -101,7 +112,7 @@ to_long <- function(d, methods) {
     mutate(err  = est - reading,
            pct  = 100 * err / reading,
            # ForestScanner doesn't use the ring, so it is never flagged
-           edge = case_when(method %in% c("Python_true_hull", "R") ~ edge_dt,
+           edge = case_when(method %in% c("Python_true_hull", "R", "Circle") ~ edge_dt,
                             method == "bin_hull_FixedAngle"         ~ edge_fa,
                             method == "bin_hull_MeanDistanceRadius" ~ edge_md),
            flagged      = !is.na(edge) & edge >= FLAG_THRESHOLD,
@@ -140,14 +151,14 @@ two_row_plot <- function(d, group_col, fills, title, subtitle, label_col = "tree
 }
 
 # ===========================================================================
-# PART 1 -- fig noted vs. no fig noted, DAB paint sites, all five methods
+# PART 1 -- fig noted vs. no fig noted, DAB paint sites, all five methods plus the circle fit
 # ===========================================================================
 acc <- acc_all %>% filter(site == "PaintMarker", !tree %in% PAINT_DBH_TREES)
 
 if (nrow(acc) == 0) {
   cat("[Part 1 skipped] no DAB paint-site field readings in the sheet yet\n")
 } else {
-  long <- to_long(acc, c("ForestScanner", "Python_true_hull", "R", "bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius"))
+  long <- to_long(acc, c("ForestScanner", "Python_true_hull", "R", "bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius", "Circle"))
   cat(sprintf("Part 1, fig notes: %d DAB paint sites (%d with a fig noted), %d rows.\n",
               nrow(acc), sum(acc$fig == "Fig noted"), nrow(long)))
 
@@ -185,7 +196,7 @@ if (nrow(acc) == 0) {
     "Error vs. Field Reading at Buttressed Paint Marks: Fig Noted vs. No Fig Noted",
     sprintf("n = %d DAB paint sites (%d with a fig in the BCI census notes). Top row mm, bottom row %%. Open markers = flagged ring (MaxEdgeFrac >= %.1f). The y axis differs per panel.",
             nrow(acc), sum(acc$fig == "Fig noted"), FLAG_THRESHOLD))
-  ggsave(file.path(plotdir, "fig_notes_error.png"), p1, width = 14, height = 7.5, dpi = 130)
+  ggsave(file.path(plotdir, "fig_notes_error.png"), p1, width = 17, height = 7.5, dpi = 130)
   cat(sprintf("\nWrote %s/fig_notes_{pertree,summary}.csv and %s/fig_notes_error.png\n", outdir, plotdir))
 }
 
@@ -197,7 +208,7 @@ if (nrow(acc) == 0) {
 # methods, with each bar's error in mm printed above it. (DJ, 2026-09-28)
 # ===========================================================================
 acc2  <- acc_all %>% filter(site == "Dendrometer" | !tree %in% FIG_TREES)
-long2 <- to_long(acc2, c("Python_true_hull", "bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius", "R")) %>%
+long2 <- to_long(acc2, c("Python_true_hull", "bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius", "R", "Circle")) %>%
   mutate(tree_label = sprintf("%s %s (%.0f)", tree, SITE_SHORT[site], reading))
 cat(sprintf("\nPart 2, without the fig paint sites: %d tree-sites, %d rows.\n", nrow(acc2), nrow(long2)))
 

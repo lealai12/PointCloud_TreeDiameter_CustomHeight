@@ -17,6 +17,10 @@
 #                         (see bin_mean_distance_radius.py's header for why):
 #       2deg = fixed 2-degree angular bin      (bin_fixed_angle.py/.R)
 #       10mm = fixed 10mm arc-length bin       (bin_mean_distance_radius.py/.R)
+#   - "circle fit"    = least-squares circle on the same polished slice
+#                         (circle_fit_slices.R, run it first). A secondary
+#                         method, not tape-equivalent, carried through Part 1
+#                         only: Part 2 pairs hulls with each other.
 #
 # PYTHON-ONLY OUTPUT (deliberate choice): every method here has an
 # independent R implementation too, and both parts below load and cross-check
@@ -94,6 +98,7 @@ dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
+CIRCLE_CSV          <- file.path(outdir, "circle_fit_slices.csv")   # circle fit per slice, written by circle_fit_slices.R (run it first)
 EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
 
 # field reading column for each site with ground truth, and its short label
@@ -122,6 +127,15 @@ raw <- read_excel(sheet) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
+# circle fit per tree + site, from circle_fit_slices.R (run it first). A
+# secondary method, carried through Part 1 next to the hulls.
+circle <- if (file.exists(CIRCLE_CSV)) {
+  read.csv(CIRCLE_CSV, colClasses = c(tree = "character")) %>% select(tree, site, Circle = circle_diameter_mm)
+} else {
+  cat(sprintf("[note] %s not found: run circle_fit_slices.R first. The circle fit is left out.\n", CIRCLE_CSV))
+  data.frame(tree = character(), site = character(), Circle = numeric())
+}
+
 acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   transmute(
     tree               = Tree_Tag,
@@ -148,7 +162,8 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
   # SIZE GROUPING: by site, not a diameter threshold. See
   # validate_field_accuracy.R's header for why.
-  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"))
+  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)")) %>%
+  left_join(circle, by = c("tree", "site"))
 
 # Python vs R cross-check (console only -- not written anywhere): confirms
 # the two independent implementations still agree before we drop R from the
@@ -165,7 +180,7 @@ py_r_check("Python_bin_hull_FixedAngle",      "R_bin_hull_FixedAngle",      "bin
 py_r_check("Python_bin_hull_MeanDistanceRadius", "R_bin_hull_MeanDistanceRadius", "bin_hull_MeanDistanceRadius")
 
 long <- acc %>%
-  pivot_longer(c(Python_true_hull, Python_bin_hull_FixedAngle, Python_bin_hull_MeanDistanceRadius),
+  pivot_longer(c(Python_true_hull, Python_bin_hull_FixedAngle, Python_bin_hull_MeanDistanceRadius, Circle),
                names_to = "method", values_to = "est") %>%
   # Display names for CSV columns/plots: drop "Python_" (results are
   # Python-only now, see the cross-check above -- the prefix no longer
@@ -182,7 +197,8 @@ long <- acc %>%
          flag_drop = case_when(
            method == "true_hull"                   ~ edge_true_hull >= FLAG_THRESHOLD,
            method == "bin_hull_FixedAngle"         ~ edge_bin_hull_FixedAngle >= FLAG_THRESHOLD,
-           method == "bin_hull_MeanDistanceRadius" ~ edge_bin_hull_MeanDistanceRadius >= FLAG_THRESHOLD),
+           method == "bin_hull_MeanDistanceRadius" ~ edge_bin_hull_MeanDistanceRadius >= FLAG_THRESHOLD,
+           method == "Circle"                      ~ edge_true_hull >= FLAG_THRESHOLD),   # same ring as the true hull
          flag_drop = !is.na(flag_drop) & flag_drop,
          # x-axis label for the bar plots: tree tag, short site, and the
          # field reading in parentheses, e.g. "3031 Dendro (724)"

@@ -2,11 +2,13 @@
 # validate_field_accuracy.R  --  FIELD ACCURACY VALIDATION
 # ---------------------------------------------------------------------------
 # Feasibility study, core accuracy comparison. At each site with a field
-# reading (the Dendrometer and PaintMarker sites), compare three diameter
+# reading (the Dendrometer and PaintMarker sites), compare four diameter
 # estimates
 #   - ForestScanner  (iPhone app, <Site>_ForestScanner_Diameter_mm)
 #   - Python hull    (dendro_tape.py convex-hull equiv diameter)
 #   - R functional   (dab_itsme_concave_hull.R ITSMe concave-hull diameter)
+#   - Circle fit     (least-squares circle on the polished slice, from
+#                     circle_fit_slices.R: a secondary method, not tape-equivalent)
 # against the field reading (Dendrometer_FieldDiameter or
 # PaintMarker_FieldDiameter_mm, mm). Rows are keyed by tree + site, since a
 # tree can have a reading at both sites.
@@ -28,7 +30,7 @@
 #     a sensitivity row excluding them is also reported. Empty = no such row.
 #   - Flagged rings (MaxEdgeFrac >= FLAG_THRESHOLD) stay in the headline
 #     metrics, and a sensitivity row excluding them is also reported. The hull
-#     and ITSMe both use the DendroTape flag, since they measure the same ring.
+#     ITSMe and the circle fit use the DendroTape flag, since they measure the same ring.
 #     ForestScanner doesn't use the ring, so it is never dropped by the flag.
 #   - No row is dropped for having a large error. Every tree + site counts.
 #
@@ -73,6 +75,7 @@ dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
+CIRCLE_CSV          <- file.path(outdir, "circle_fit_slices.csv")   # circle fit per slice, written by circle_fit_slices.R (run it first)
 EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
 
 # field reading column for each site with ground truth, and its short label
@@ -90,6 +93,14 @@ raw <- read_excel(sheet) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
+# circle fit per tree + site, from circle_fit_slices.R (run it first)
+circle <- if (file.exists(CIRCLE_CSV)) {
+  read.csv(CIRCLE_CSV, colClasses = c(tree = "character")) %>% select(tree, site, Circle = circle_diameter_mm)
+} else {
+  cat(sprintf("[note] %s not found: run circle_fit_slices.R first. The circle fit is left out.\n", CIRCLE_CSV))
+  data.frame(tree = character(), site = character(), Circle = numeric())
+}
+
 # every cloud-vs-reading pair, one row per tree + site (the "all_sites" scope)
 acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) {
   raw %>%
@@ -106,7 +117,8 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) {
   filter(!is.na(reading), !is.na(Python)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
   mutate(size         = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"),
-         ring_flagged = !is.na(max_edge) & max_edge >= FLAG_THRESHOLD)
+         ring_flagged = !is.na(max_edge) & max_edge >= FLAG_THRESHOLD) %>%
+  left_join(circle, by = c("tree", "site"))
 
 # ---------------------------------------------------------------------------
 # run one scope: long form, per-tree table, metrics, plots
@@ -119,7 +131,7 @@ run_scope <- function(acc, scope, title) {
   }
 
   long <- acc %>%
-    pivot_longer(c(ForestScanner, Python, R), names_to = "method", values_to = "est") %>%
+    pivot_longer(c(ForestScanner, Python, R, Circle), names_to = "method", values_to = "est") %>%
     filter(!is.na(est)) %>%
     mutate(err   = est - reading,
            pct   = 100 * err / reading,
@@ -166,7 +178,7 @@ run_scope <- function(acc, scope, title) {
               toupper(title), nrow(acc)))
   cat("signed % error per method:\n\n")
   print(as.data.frame(pertree %>% select(tree, site, size, reading, flagged,
-          ForestScanner_tag, Python_tag, R_tag)), row.names = FALSE)
+          any_of(c("ForestScanner_tag", "Python_tag", "R_tag", "Circle_tag")))), row.names = FALSE)
   cat("\n-- per-method metrics (mm; +bias = over-read) --\n")
   print(as.data.frame(summary_tbl %>%
           mutate(across(c(bias, MAE, RMSE), ~round(.x)), MAPE = round(MAPE, 1))),

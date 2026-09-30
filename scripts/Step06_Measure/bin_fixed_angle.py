@@ -62,10 +62,13 @@ slice likely has exactly the outlier-hull-vertex problem this script is
 built to route around.
 
 Gaps: an angular bin with zero points (occlusion, or a bin narrower than the
-point spacing) has no value to report. Its radius is filled by circular
-linear interpolation between the nearest populated bins on either side, so
-the polygon stays closed; `n_bins_populated` / `max_gap_deg` say how much of
-the ring is real vs interpolated, and `coverage_deg` (identical definition to
+point spacing) has no value to report, and is skipped: the polygon runs
+in a straight line from the last populated bin before the gap to the first one
+after it (DJ, 2026-09-30, since an empty run is usually a crevice the tape
+bridges). Until 2026-09-30 empty bins were filled by circular interpolation
+of the radius, which bowed slightly outward across a gap. `n_bins_populated` /
+`max_gap_deg` say how much of the ring is measured vs bridged, and
+`coverage_deg` (identical definition to
 dendro_tape.py, computed on the RAW points, not the bins) plus `max_edge_frac`
 on the final hull gate `bin_hull_valid` exactly as in dendro_tape.py.
 
@@ -131,7 +134,7 @@ PERCENTILE = 90                       # radius percentile taken inside each angu
                                       # method). Higher sits nearer the outer bark surface, where
                                       # a tape rides. Chosen in advance (2026-09-22), not tuned.
 MIN_POINTS_PER_BIN = 10               # QC: a bin with fewer points than this is treated as EMPTY
-                                      # and filled from its neighbours, like a bin with no points.
+                                      # and skipped, like a bin with no points.
                                       # Counted in n_bins_sparse. 1 = use any bin with a point.
 
 import numpy as np
@@ -188,7 +191,7 @@ def percentile_surface_polygon(xy: np.ndarray, bin_width_deg: float,
                                percentile: float = PERCENTILE,
                                min_points: int = MIN_POINTS_PER_BIN) -> dict:
     """Bin `xy` by angle about its centroid, take the PERCENTILE-th radius per bin,
-    circularly interpolate empty bins, and return the closed polygon plus
+    skip empty bins, and return the closed polygon (populated bins only) plus
     coverage diagnostics. See module docstring for the full rationale."""
     cx, cy = xy[:, 0].mean(), xy[:, 1].mean()
     dx, dy = xy[:, 0] - cx, xy[:, 1] - cy
@@ -214,19 +217,16 @@ def percentile_surface_polygon(xy: np.ndarray, bin_width_deg: float,
         raise ValueError("no populated angular bins — slice has too few/too "
                           "clustered points to build a surface polygon")
 
-    # Circular linear interpolation for empty bins: extend the populated
-    # (angle, radius) samples by +/- 2*pi so np.interp wraps correctly across
-    # the 0/2*pi seam, then fill every bin center (populated bins interpolate
-    # back to their own exact value at zero distance).
+    if n_populated < 3:
+        raise ValueError(f"only {n_populated} populated angular bins, need at least 3 "
+                         "to build a surface polygon")
+
+    # Empty bins are skipped, not filled: the polygon is the populated bins
+    # only, in angular order (bin_centers is already increasing), so it runs in
+    # a straight line across any run of empty bins, as a tape would.
     pop_ang = bin_centers[populated]
     pop_r = bin_r[populated]
-    order = np.argsort(pop_ang)
-    pop_ang, pop_r = pop_ang[order], pop_r[order]
-    ext_ang = np.concatenate([pop_ang - 2 * math.pi, pop_ang, pop_ang + 2 * math.pi])
-    ext_r = np.tile(pop_r, 3)
-    filled_r = np.interp(bin_centers, ext_ang, ext_r)
-
-    poly_xy = np.c_[cx + filled_r * np.cos(bin_centers), cy + filled_r * np.sin(bin_centers)]
+    poly_xy = np.c_[cx + pop_r * np.cos(pop_ang), cy + pop_r * np.sin(pop_ang)]
     max_gap_deg = math.degrees(max_empty_run(populated) * bin_w_rad)
 
     return {
@@ -409,7 +409,7 @@ def main():
     ap.add_argument("--percentile", type=float, default=PERCENTILE,
                     help=f"Radius percentile taken in each bin (default {PERCENTILE}; 50 = median).")
     ap.add_argument("--min-points", type=int, default=MIN_POINTS_PER_BIN,
-                    help=f"Bins with fewer points are filled from neighbours (default {MIN_POINTS_PER_BIN}).")
+                    help=f"Bins with fewer points are treated as empty and skipped (default {MIN_POINTS_PER_BIN}).")
     ap.add_argument("--poly-dir", default=None,
                     help="If set, write <tree_id>_bin_polygon_fixed_angle_py.ply (cyan) and "
                          "<tree_id>_bin_hull_fixed_angle_py.ply (magenta) per slice under this "
