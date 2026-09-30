@@ -20,12 +20,12 @@ We are **not** measuring diameter directly. From a point cloud you can only reco
 2. Fit a shape to that ring of points to recover **circumference** and an **equivalent diameter**.
 3. Report both — because on an irregular, fluted or buttressed tropical trunk, "diameter" is a **modeled quantity, not a physical one**.
 
-**Two diameter conventions — pick one and stay consistent:**
+**Two diameter conventions:**
 
-- **Equivalent-circle diameter**, `D = C / π`, where `C` is the fitted circumference. This mirrors what a DBH tape physically does: it measures circumference and back-computes a diameter. **This is the convention to use when comparing against tape-measured DBH/DAB.**
-- **Best-fit-circle diameter** — a least-squares circle returns a radius directly. Identical to the above on a perfectly round stem; different on an irregular one. Useful as a cross-check, not as the headline number.
+- **Equivalent-circle diameter**, `D = C / π`, where `C` is a measured circumference. This mirrors what a DBH tape physically does: it wraps the outside of the bark, bridges flutes, and back-computes a diameter from the circumference.
+- **Best-fit-circle diameter** — a least-squares circle returns a radius directly. Identical to the above on a perfectly round stem. On an irregular one the circle passes through the middle of the bark's bumps rather than wrapping them, so it tends to read lower. Its RMS residual is also a useful measure of how round the ring is.
 
-**This project reports circumference as primary and equivalent-circle diameter as derived**, because that is what matches field tape practice. The circle fit is kept as a secondary signal (and its RMS residual is a useful data-quality metric).
+**Six methods are compared** — five from the cloud, and ForestScanner's own reading. Which one to report depends on what the reference instrument measures and on the results.
 
 **Site selection is per-tree and operator-chosen** — over a dendrometer band, over a painted census mark, or at the height where the buttress flares merge into a roughly cylindrical bole. **The height you pick is a real data column, not a nuisance parameter**: record it every time.
 
@@ -38,10 +38,9 @@ From a trunk cross-section we recover geometry several independent ways per site
 - **`dendro_tape.py` / `.R`** — the raw-point **convex-hull "tape"**: the hull wraps the outside of the ring and bridges flutes, exactly as a physical girth tape does. No circle fit, nothing else. This is the most physically literal tape mimic, and the baseline the others are compared against.
 - **`dab_itsme_concave_hull.R` / `.py`** — the [**ITSMe**](https://github.com/lmterryn/ITSMe) method: median-radius circle fit **+ concave-hull "functional" diameter** (the diameter of a circle with the same *area* as the concave hull), which dips *into* grooves where a convex hull bridges them. A genuinely different method. The `.R` calls the ITSMe R package. ITSMe has no Python package, so the `.py` is a port of its `diameter_slice_pc()`, including the `concaveman` concave hull it uses. On this project's 41 slices the port matches the R run exactly on the circle fit and to within 0.1 mm on the concave-hull diameter.
 - **`bin_fixed_angle.*` / `bin_mean_distance_radius.*`** — the **binned** hulls. Instead of hulling the raw points, the ring is divided into angular wedges, one radius is taken per wedge, and the hull is computed on that denoised polygon. This is the scripted fix for the convex hull's single-stray-point problem.
+- **`circle_fit.py` / `.R`** — the least-squares (Kåsa) **circle fit**, the classic point-cloud stem diameter. The circle passes through the middle of the bark's bumps rather than wrapping them, so on fluted and buttressed trunks it tends to read below the hulls.
 
-The recorded metric is the **tape-equivalent diameter**. `compare_hull_methods.R` checks the binned hulls against `dendro_tape.*` both vs. field reading and directly against each other, alongside — not instead of — the main field-accuracy comparison in `validate_field_accuracy.R`.
-
-A **least-squares circle fit** is also reported in every Step 7 field comparison, as a secondary method (`circle_fit_slices.R`), because it is the classic point-cloud DBH and readers will ask about it. It runs through the middle of the bark's bumps rather than wrapping them, so on fluted and buttressed trunks it reads smaller than any hull. It is not what a girth tape measures, so it is not the headline.
+`compare_hull_methods.R` checks the binned hulls against `dendro_tape.*` both vs. field reading and directly against each other, alongside — not instead of — the main field-accuracy comparison in `validate_field_accuracy.R`, which compares every method.
 
 ### The binned methods: two knobs, both yours
 
@@ -72,8 +71,9 @@ PointCloud_TreeDiameter_CustomHeight/
 │   ├── Step04_CutSlices/         # cut_slice.py / cut_slice.R — cut the band at the picked height
 │   ├── Step05_PolishSlice/       # (CloudCompare, manual) polish the slice ring — README only
 │   ├── Step06_Measure/           # dendro_tape.py / .R, dab_itsme_concave_hull.R / .py,
-│   │                             #   bin_fixed_angle.py / .R, bin_mean_distance_radius.py / .R
-│   ├── Step07_Analysis/          # circle_fit_slices.R, validate_field_accuracy.R,
+│   │                             #   bin_fixed_angle.py / .R, bin_mean_distance_radius.py / .R,
+│   │                             #   circle_fit.py / .R
+│   ├── Step07_Analysis/          # validate_field_accuracy.R,
 │   │                             #   compare_hull_methods.R, plot_error_by_size.R,
 │   │                             #   bin_fixed_angle_demo.R, plot_by_method.R,
 │   │                             #   compare_fig_notes.R (R-only by design)
@@ -128,7 +128,7 @@ Seven steps. Five are manual CloudCompare work by design; only steps 4 and 6 are
 | 3 Clean (loop-close, merge, SOR) | `Step03_CleanSection/` | CloudCompare, manual | per capture, then per tree |
 | 4 Select site & cut the slice | `Step04_CutSlices/` — `cut_slice.py` / `.R` | Python / R | per tree-site |
 | 5 Polish the slice ring | `Step05_PolishSlice/` | CloudCompare, manual | per tree-site |
-| 6 Measure | `Step06_Measure/` — eight scripts | Python **and** R | per tree-site |
+| 6 Measure | `Step06_Measure/` — ten scripts | Python **and** R | per tree-site |
 | 7 Validate & compare | `Step07_Analysis/` | R only | once, over everything |
 
 Each folder has a README stating what it **takes**, what it **makes**, and what it **feeds**.
@@ -220,6 +220,8 @@ python  scripts/Step06_Measure/bin_fixed_angle.py            --from-sheet --up-a
 Rscript scripts/Step06_Measure/bin_fixed_angle.R             --from-sheet --up-axis y
 python  scripts/Step06_Measure/bin_mean_distance_radius.py   --from-sheet --up-axis y
 Rscript scripts/Step06_Measure/bin_mean_distance_radius.R    --from-sheet --up-axis y
+python  scripts/Step06_Measure/circle_fit.py                 --from-sheet --up-axis y
+Rscript scripts/Step06_Measure/circle_fit.R                  --from-sheet --up-axis y
 ```
 
 Single-file and folder modes also work; the ring is already cut, so **omit the height arguments** and the script measures the file as-is:
@@ -299,7 +301,6 @@ So the thing to verify is **completeness**, not correctness:
 ## Step 7 — (R) Validate & compare
 
 ```bash
-Rscript scripts/Step07_Analysis/circle_fit_slices.R         # -> results/circle_fit_slices.csv (run first)
 Rscript scripts/Step07_Analysis/validate_field_accuracy.R   # -> results/field_accuracy_*
 Rscript scripts/Step07_Analysis/compare_hull_methods.R      # -> results/hull_comparison_*
 Rscript scripts/Step07_Analysis/plot_error_by_size.R        # -> results/error_by_size_*
@@ -308,7 +309,7 @@ Rscript scripts/Step07_Analysis/plot_by_method.R            # -> results/plots/b
 Rscript scripts/Step07_Analysis/compare_fig_notes.R         # -> results/fig_notes_*
 ```
 
-Run these **from the repo root** — they `source()` `scripts/plot_style.R` with a repo-relative path — and run `circle_fit_slices.R` first, since the others read its CSV to add the circle fit. They read the working sheet (`DAB_SHEET` overrides the path) and, for the circle fit, the polished slices. Output goes to `results/`, or to the folder in `DAB_RESULTS`. **`results/` is git-tracked**, so anything written there goes public when the repo is pushed.
+Run these **from the repo root** — they `source()` `scripts/plot_style.R` with a repo-relative path. They read the working sheet and nothing else (`DAB_SHEET` overrides the path). Output goes to `results/`, or to the folder in `DAB_RESULTS`. **`results/` is git-tracked**, so anything written there goes public when the repo is pushed.
 
 How the comparisons are set up:
 
@@ -317,7 +318,7 @@ How the comparisons are set up:
 - **No row is dropped for having a large error.** The headline metrics use every tree-site, flagged rings included. Each summary adds a sensitivity row without flagged rings (`MaxEdgeFrac` ≥ 0.5).
 - **`compare_fig_notes.R`** compares the buttressed paint sites on trees with a fig noted in the census notes against those without, and redraws the main error chart without the fig paint sites. It was added after the pattern was seen, so it is exploratory.
 
-Watch the `[Python vs R cross-check]` lines `compare_hull_methods.R` prints — a convex hull is deterministic, so the hull twins should agree to **0.000 mm**. The ITSMe line can read up to about 0.1 mm, since both are stored in tenths of a mm and the port rounds an occasional point the other way. Anything larger is a bug, not a method difference.
+Watch the `[Python vs R cross-check]` lines `compare_hull_methods.R` prints — a convex hull is deterministic, so the hull and circle-fit twins should agree to **0.000 mm**. The ITSMe line can read up to about 0.1 mm, since both are stored in tenths of a mm and the port rounds an occasional point the other way. Anything larger is a bug, not a method difference.
 
 Finally, log anything nonstandard in `Tree_notes.md` — the qualitative story that the sheet's structured columns can't hold.
 
@@ -343,17 +344,16 @@ Finally, log anything nonstandard in `Tree_notes.md` — the qualitative story t
 - [ ]  6. (Python + R) Measure, every method, height args OMITTED:
           python  scripts/Step06_Measure/dendro_tape.py           --from-sheet --up-axis y
           Rscript scripts/Step06_Measure/dab_itsme_concave_hull.R --from-sheet --up-axis y
-          (+ their twins, and bin_fixed_angle.* / bin_mean_distance_radius.* -- one run per site)
+          (+ their twins, bin_fixed_angle.* / bin_mean_distance_radius.* and circle_fit.* -- one run per site)
 - [ ] 6b. Check <Site>_<Method>_MaxEdgeFrac. Over 0.5? Open the --viz-dir picture and
           decide: real scan gap, or a flute the tape would bridge anyway?
 - [ ]  X. CHECKPOINT before analysis. Missing COLUMN = loud R error;
           missing VALUE = row silently dropped. Confirm the field readings and
           diameter columns are complete, set the Step 7 site lists, then
           sanity-check `n` in the summary.
-- [ ]  7. (R) Rscript scripts/Step07_Analysis/circle_fit_slices.R   <- first
-          (R) Rscript scripts/Step07_Analysis/validate_field_accuracy.R
+- [ ]  7. (R) Rscript scripts/Step07_Analysis/validate_field_accuracy.R
           (R) Rscript scripts/Step07_Analysis/compare_hull_methods.R  <- watch the
-              Python-vs-R cross-check lines; hulls nonzero = real bug
+              Python-vs-R cross-check lines; hulls or circle nonzero = real bug
           (R) the other Step 7 scripts, for the figures
 - [ ]  8. (manual) Log anything nonstandard in Tree_notes.md
 ```
@@ -385,6 +385,7 @@ Every script in the repo, grouped by where it sits in the chain. Paths are relat
 | `Step06_Measure/dab_itsme_concave_hull.R` / `.py` | both | ITSMe median-radius circle **+ concave "functional" diameter** (equal-area) | A genuinely different method. Concave hull traces *into* flutes where a convex hull bridges them, and underestimates where an arc is missing. The `.R` calls ITSMe; the `.py` ports it |
 | `Step06_Measure/bin_mean_distance_radius.py` / `.R` | both | Convex hull of a percentile-binned polygon, wedge width set by a fixed **arc length** (default ~10 mm) | One of two offered variants |
 | `Step06_Measure/bin_fixed_angle.py` / `.R` | both | Same method, wedge width set by a fixed **angle** (default 2°) | The other variant — **not** a superseded version |
+| `Step06_Measure/circle_fit.py` / `.R` | both | Least-squares (Kåsa) circle fit | The circle passes through the middle of the bark's bumps, so on fluted trunks it tends to read below the hulls. RMS and coverage go to the CSV |
 
 ### Step 6 — batch plumbing
 
@@ -398,7 +399,6 @@ Every script in the repo, grouped by where it sits in the chain. Paths are relat
 
 | Script | Purpose |
 |---|---|
-| `Step07_Analysis/circle_fit_slices.R` | Least-squares circle fit on every polished slice, the secondary method the other scripts add. Run it first |
 | `Step07_Analysis/validate_field_accuracy.R` | The core feasibility result: every method vs. field reading, two scopes (Dendrometer site only, and both sites), grouped by measurement type |
 | `Step07_Analysis/compare_hull_methods.R` | Raw true hull vs. denoised binned hull — against field reading and against each other. Prints the Python-vs-R cross-check |
 | `Step07_Analysis/plot_error_by_size.R` | Every method on one axis, DBH vs DAB, to compare the *shape* of each error distribution |
@@ -414,6 +414,7 @@ Every script in the repo, grouped by where it sits in the chain. Paths are relat
 | Script | Verdict |
 |---|---|
 | `Unused/measure_slice.py` / `.R` | **Retired 2026-09-21.** Circle fit + convex-hull tape on a polished slice; produced this project's first-pass numbers. `dendro_tape.*` gives the identical hull diameter, adds the gap check, and now writes the same pictures. `OUTPUT_COL` is disabled, so it cannot write to the sheet |
+| `Unused/circle_fit_slices.R` | **Superseded 2026-09-30** by `Step06_Measure/circle_fit.*`, which writes the circle fit to the sheet |
 | `Unused/loopclose.py` | **Never run in this study.** FPFH/RANSAC coarse alignment + point-to-plane ICP, then merge. Cannot cut the flap — that's manual. Wrote nothing: `stitched/` holds only `.gitkeep` |
 | `Unused/loopclose.R` | **Never run in this study.** Best-effort port of the above with **no coarse step**. Weaker; if ever tried, check the merge visually |
 | `Unused/disc_dbh_template.R` | ⚠️ **Do not run this.** The earliest prototype — a minimal ITSMe example written before this project discovered its clouds are Y-up. **The code itself is not wrong**: `diameter_slice_pc` slices on Z because that is ITSMe's convention, correct for a Z-up cloud. What was wrong was feeding it Y-up data — a usage error that voided an entire first batch of measurements. Kept because that mistake is part of the documented method history |
@@ -444,21 +445,21 @@ python  scripts/Step06_Measure/dab_itsme_concave_hull.py <segment.ply> --tree-id
     --height-z <Y> --thickness 0.06 --out <csv>
 ```
 
-A whole folder of rings: `--batch` (path is a folder, one row per `*.ply`) — supported by `dendro_tape.py`/`.R`, `bin_*.py`, `cut_slice.py`/`.R` and `fit_dab.py`/`.R`, but **not** the R binned scripts or either ITSMe script.
+A whole folder of rings: `--batch` (path is a folder, one row per `*.ply`) — supported by `dendro_tape.py`/`.R`, `circle_fit.py`/`.R`, `bin_*.py`, `cut_slice.py`/`.R` and `fit_dab.py`/`.R`, but **not** the R binned scripts or either ITSMe script.
 
 > **⚠️ The height/thickness flags are not named the same across scripts:**
 >
 > | Script | Height flag | Thickness flag |
 > |---|---|---|
-> | `cut_slice.py`/`.R`, `dendro_tape.py`, `bin_*.py`, `fit_dab.*` | `--slice-height` | `--slice-thickness` |
-> | `dendro_tape.R`, `bin_*.R` | `--height` | `--thickness` |
+> | `cut_slice.py`/`.R`, `dendro_tape.py`, `circle_fit.py`, `bin_*.py`, `fit_dab.*` | `--slice-height` | `--slice-thickness` |
+> | `dendro_tape.R`, `circle_fit.R`, `bin_*.R` | `--height` | `--thickness` |
 > | `dab_itsme_concave_hull.R`/`.py` | `--height-z` | `--thickness` |
 >
 > Also: **`--up-axis` does not default the same way across scripts.** `fit_dab.*` and both ITSMe scripts default to **`z`** — the wrong axis for these clouds. Pass it explicitly, every time.
 
 ### Outputs
 
-- **Your working workbook** (outside the repo) — per site: the `CutSlice` ceiling, `DendroTape`, `DabItsme_ConcaveHull`, `BinFixedAngle` and `BinMeanDistanceRadius` diameters in mm for Python and R, plus `MaxEdgeFrac`, alongside your field readings.
+- **Your working workbook** (outside the repo) — per site: the `CutSlice` ceiling, `DendroTape`, `DabItsme_ConcaveHull`, `BinFixedAngle`, `BinMeanDistanceRadius` and `CircleFit` diameters in mm for Python and R, plus `MaxEdgeFrac`, alongside your field readings.
 - **Per-slice viz bundle** (`--viz-dir` on `cut_slice.*` and `dendro_tape.*`): `*_slice.ply` (the measured band, in the scan's own colours), `*_ring_*.ply` (fitted circle), `*_hull_*.ply` (tape wrap), `*_gapedge.ply` on a flagged ring, `*_slice_fit.png`, `*_measure.txt`.
 - **Binned geometry** (`--poly-dir` on the `bin_*` scripts): the binned surface polygon (cyan) and its hull (magenta) as `.ply`, to load in CloudCompare next to the original slice.
 - **`results/*.csv` + `results/plots/*.png`** — where the analysis scripts write, or `DAB_RESULTS` if set. This repo's copy holds this project's second-pass results. Point clouds are never written here (and are gitignored by extension anyway).
@@ -510,5 +511,5 @@ Carried over from the project's design notes — unresolved, and worth stating p
 - **The measurement-height rule is not standardized.** "Above the buttress" is an operator judgment call. A written rule (e.g. "0.3 m above the visual buttress top") would make it reproducible across operators — at the cost of flexibility on trees that don't fit the rule.
 - **Buttress-top detection could be automated** — e.g. from a cross-sectional area or roundness curve against height — removing the judgment call entirely.
 - **There is no uncertainty budget.** Scan noise, slice thickness and fit residual all contribute; combining them into per-tree error bars has not been done.
-- **The primary metric for publication is still open**: hull circumference vs. best-fit circle. This README recommends the hull (see [What we're actually measuring](#what-were-actually-measuring-read-this-first)), because it is what a tape measures. On this project's field comparison the least-squares circle came closest overall, largely by not over-reading the buttressed and fig-covered trunks, so the argument should be made explicitly in the write-up.
+- **Which method to report is open**, and depends on what the reference instrument measures and on the results (see [What we're actually measuring](#what-were-actually-measuring-read-this-first)). A hull measures what a tape measures, and a circle does not wrap the bark's bumps. On this project's field comparison the least-squares circle came closest overall, largely by not over-reading the buttressed and fig-covered trunks, and the binned hulls came closest at the dendrometer sites. The choice should be argued explicitly in the write-up.
 - **Repeatability is untested.** For dendrometer trees the real prize is whether a re-scan recovers the same diameter within the dendrometer's detectable growth increment. That would establish point-cloud *monitoring*, not just one-off measurement — and it needs a second scanning campaign.

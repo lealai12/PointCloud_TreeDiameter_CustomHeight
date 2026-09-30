@@ -1,24 +1,22 @@
 # Step 07 — Analysis
 
-Tools: R only, by design. Seven scripts in this folder.
+Tools: R only, by design. Six scripts in this folder.
 
-Note: Input is the working sheet, Working_Steps\field_measurements_Draft2_Working.xlsx, with real tree tags, and for circle_fit_slices.R the polished slices in Working_Steps\5_PolishedSlices\. Output CSVs go to results\ and pictures to results\plots\, or to the DAB_RESULTS folder if it is set.
+Note: Input is the working sheet, Working_Steps\field_measurements_Draft2_Working.xlsx, with real tree tags. Nothing else is read. Output CSVs go to results\ and pictures to results\plots\, or to the DAB_RESULTS folder if it is set.
 
 The scripts, and what each one answers:
-- circle_fit_slices.R: a least-squares circle fit on every polished slice, the secondary method the others compare against. Run it first. results\circle_fit_slices.csv
 - validate_field_accuracy.R: how close each cloud method and ForestScanner come to the field reading. Two scopes, the Dendrometer site only and both sites with a reading. results\field_accuracy_{dendrometer_only,all_sites}_{pertree,summary}.csv, plus scatter and error plots
 - compare_hull_methods.R: whether the binned hull beats the raw-point convex hull, against the field reading and against each other. Also prints the Python vs R cross-check. results\hull_comparison_* CSVs, plus scatter, error, Bland-Altman and bin-width plots
 - plot_error_by_size.R: signed % error of every method, DBH vs DAB. results\error_by_size_pertree.csv, results\plots\error_by_size_boxplot.png
 - bin_fixed_angle_demo.R: the fixed-angle binned-hull diameter at every processed site, not just the validated ones. results\bin_fixed_angle_demo_all_sites.{csv,png}
 - plot_by_method.R: the figures above split out, one panel per method, every method. results\plots\by_method_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png
-- compare_fig_notes.R: at the buttressed (DAB) paint sites, error for trees with a fig noted in the BCI census notes vs. trees without, in mm and %. results\fig_notes_{pertree,summary}.csv, results\plots\fig_notes_error.png. Also the signed % error bar chart without the fig paint sites (every dendrometer site plus the paint sites on trees without a fig), the four cloud methods and the circle fit, with the mm error on each bar. results\plots\field_accuracy_no_fig_sites_error.png
+- compare_fig_notes.R: at the buttressed (DAB) paint sites, error for trees with a fig noted in the BCI census notes vs. trees without, in mm and %. results\fig_notes_{pertree,summary}.csv, results\plots\fig_notes_error.png. Also the signed % error bar chart without the fig paint sites (every dendrometer site plus the paint sites on trees without a fig), the five cloud methods, with the mm error on each bar. results\plots\field_accuracy_no_fig_sites_error.png
 
 Steps:
 1. Enter the field readings in the sheet, in mm (Dendrometer_FieldDiameter, PaintMarker_FieldDiameter_mm), and close it in Excel.
 2. In each script's CONFIG, set EXCLUDE_SITES, PAINT_DBH_TREES and EXCLUDE_SENSITIVITY for your trees, and FIG_TREES in compare_fig_notes.R.
 3. Run every script from the repo root:
 
-    Rscript scripts/Step07_Analysis/circle_fit_slices.R
     Rscript scripts/Step07_Analysis/validate_field_accuracy.R
     Rscript scripts/Step07_Analysis/compare_hull_methods.R
     Rscript scripts/Step07_Analysis/plot_error_by_size.R
@@ -32,7 +30,7 @@ Note: DBH vs DAB is set by measurement type, not a diameter threshold. DBH is th
 
 Note: No row is dropped for having a large error. The headline metrics use every tree-site, flagged rings included. Each summary adds a sensitivity row without flagged rings (MaxEdgeFrac >= 0.5), and one without the trees in EXCLUDE_SENSITIVITY if that list isn't empty. Tree + site pairs in EXCLUDE_SITES are left out of everything.
 
-Note: The circle fit is a secondary method. It runs through the middle of the bark's bumps, so on fluted and buttressed trunks it reads smaller than any hull, and it is not what a girth tape measures. The headline metric stays the tape-equivalent hull. The circle is shown next to it in every field comparison, but not in compare_hull_methods.R's method-agreement and bin-width figures, which pair the hull methods with each other.
+Note: Six methods are compared: the five cloud methods from Step 6 and ForestScanner's own reading. Which one to report depends on what the reference instrument measures and on the results. The circle fit is in every field comparison, but not in compare_hull_methods.R's method-agreement and bin-width figures, which pair the hull methods with each other.
 
 Note: ForestScanner is left out of hull_comparison_vs_field_reading_error_mm.png, since its errors run to over a metre and would stretch the axis. Its range, mean and count are printed in the figure caption.
 

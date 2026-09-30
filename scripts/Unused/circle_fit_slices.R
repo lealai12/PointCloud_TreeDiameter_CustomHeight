@@ -1,17 +1,10 @@
 #!/usr/bin/env Rscript
 # =============================================================================
-# circle_fit_slices.R -- least-squares circle fit on every polished slice, as a
-# secondary comparison method for the step 7 analysis. RUN THIS FIRST: the
-# other step 7 scripts read its CSV and add "Circle fit (least squares)" as a
-# method wherever they compare against the field reading.
+# circle_fit_slices.R -- least-squares circle fit on every polished slice.
 #
-# Why it is here: the headline metric is tape-equivalent diameter (hull
-# circumference / pi), because a girth tape wraps the outside of the bark and
-# bridges flutes. A circle fit runs through the middle of the bark's bumps
-# instead, so on fluted or buttressed trunks it reads smaller than any hull.
-# It is the classic point-cloud DBH, so it is reported next to the hull
-# methods, not in place of them. Added 2026-09-28, after the field comparison
-# had been seen, as a secondary method (DJ).
+# SUPERSEDED 2026-09-30 by scripts/Step06_Measure/circle_fit.py / .R, which fit
+# the same circle in Step 6 and write it to the sheet. Step 7 now reads the
+# sheet, so nothing uses this script's CSV. Kept as the record.
 #
 # The fit is the algebraic (Kasa) least-squares circle, the same fit as
 # scripts/fit_dab.R's fit_circle_kasa(), done in the plane across the trunk

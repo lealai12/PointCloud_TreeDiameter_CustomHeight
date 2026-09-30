@@ -1,6 +1,6 @@
 # Step 06 — Measure
 
-Tools: Python and R, run independently. Eight scripts in this folder.
+Tools: Python and R, run independently. Ten scripts in this folder, five methods.
 
 Note: Input is the polished ring from Step 5, Working_Steps\5_PolishedSlices\<tag>__<Site>.ply. Output CSVs and pictures go to Working_Steps\6_Measure\.
 
@@ -9,11 +9,12 @@ The methods, and the sheet column each one writes:
 - dab_itsme_concave_hull.R / .py: ITSMe circle fit plus concave hull, which dips into grooves where a tape would bridge them. The .R runs the ITSMe package, and the .py is a Python port of the same method. <Site>_DabItsme_ConcaveHull_{RScript,pythonScript}_Diameter_mm
 - bin_fixed_angle.py / .R: convex hull of a binned polygon, one wedge every 2°. <Site>_BinFixedAngle_{pythonScript,RScript}_Diameter_mm
 - bin_mean_distance_radius.py / .R: the same, but each wedge spans a fixed ~10 mm of bark. <Site>_BinMeanDistanceRadius_{pythonScript,RScript}_Diameter_mm
+- circle_fit.py / .R: least-squares (Kasa) circle fit. The circle passes through the middle of the bark's bumps rather than wrapping them, so on fluted trunks it tends to read below the hulls. <Site>_CircleFit_{pythonScript,RScript}_Diameter_mm. The circle RMS and coverage go to the CSV only.
 
 The binned scripts take the 90th percentile radius in each wedge, not the median, since the median cuts inside the bark. PERCENTILE and MIN_POINTS_PER_BIN are set in CONFIG.
 
 Steps:
-1. In each script's CONFIG, set SITE_LABEL and the site prefix on OUTPUT_COL and FLAG_COL for the site you are running. For dab_itsme_concave_hull.R and .py, also set HEIGHT_COL to that site's Y_value column.
+1. In each script's CONFIG, set SITE_LABEL and the site prefix on OUTPUT_COL and FLAG_COL for the site you are running (circle_fit has no FLAG_COL, since analysis uses the DendroTape flag for it). For dab_itsme_concave_hull.R and .py, also set HEIGHT_COL to that site's Y_value column.
 2. Run every script from the repo root:
 
     python  scripts/Step06_Measure/dendro_tape.py                --from-sheet --up-axis y
@@ -24,6 +25,8 @@ Steps:
     Rscript scripts/Step06_Measure/bin_fixed_angle.R             --from-sheet --up-axis y
     python  scripts/Step06_Measure/bin_mean_distance_radius.py   --from-sheet --up-axis y
     Rscript scripts/Step06_Measure/bin_mean_distance_radius.R    --from-sheet --up-axis y
+    python  scripts/Step06_Measure/circle_fit.py                 --from-sheet --up-axis y
+    Rscript scripts/Step06_Measure/circle_fit.R                  --from-sheet --up-axis y
 
 3. Repeat steps 1 and 2 for each site: TopFlag, LowerFlag, PaintMarker, Dendrometer.
 4. Check the <Site>_<Method>_MaxEdgeFrac columns. For anything over 0.5, open the ring's picture and decide whether it is a real gap in the scan or a flute the tape would bridge anyway.
@@ -45,4 +48,4 @@ Kept as the record: fit_dab.py and fit_dab.R at the scripts/ root are the untouc
 
 This project's run:
 - First pass: 32 of 32 tree-sites measured.
-- Second pass: 41 of 41 tree-sites measured by all six dendro_tape and binned scripts, Python and R identical on every one.
+- Second pass: 41 of 41 tree-sites measured by the dendro_tape, binned and circle_fit scripts, Python and R identical on every one, and by both ITSMe scripts, within 0.1 mm of each other.

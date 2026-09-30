@@ -31,7 +31,7 @@ METHOD_LABELS <- c(
   Python_bin_hull_FixedAngle       = "Binned hull, fixed angle",
   bin_hull_MeanDistanceRadius         = "Binned hull, mean-distance radius",
   Python_bin_hull_MeanDistanceRadius  = "Binned hull, mean-distance radius",
-  Circle                   = "Circle fit (least squares)"   # circle_fit_slices.R, secondary method (2026-09-28)
+  Circle                   = "Circle fit (least squares)"   # circle_fit.py / .R (Step 6)
 )
 
 # canonical legend/plot order -- identical across every figure

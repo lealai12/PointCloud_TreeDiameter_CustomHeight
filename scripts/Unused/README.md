@@ -1,6 +1,6 @@
 # Unused
 
-**Nothing in this folder is part of the workflow. A future user should not run any of it.** The files are kept for three different reasons: one script was superseded, two were never run, and one is the mistake the workflow was built to avoid.
+**Nothing in this folder is part of the workflow. A future user should not run any of it.** The files are kept for three different reasons: two were superseded, two were never run, and one is the mistake the workflow was built to avoid.
 
 ## `measure_slice.py` / `measure_slice.R` — retired, superseded by `dendro_tape`
 
@@ -13,6 +13,10 @@ Retired **2026-09-21**. These measured a polished slice with a least-squares cir
 - **Same pictures.** `dendro_tape` gained `--viz-dir`, writing the same bundle (fit PNG, slice cloud, hull/circle overlay PLYs, `measure.txt`), and draws a flagged ring's long edge in magenta labelled **PARTIAL RING**.
 
 They are kept as the record of what produced the first-pass results. `OUTPUT_COL` is set to `None` / `NULL` in both, so neither can write to the sheet even if run. Their measurement code is a copy of `fit_dab.*`, which stays at the `scripts/` root for the same reason.
+
+## `circle_fit_slices.R` — superseded by `Step06_Measure/circle_fit`
+
+Fitted the least-squares circle on every polished slice for Step 7. Since 2026-09-30 `circle_fit.py` / `.R` do that in Step 6 and write the result to the sheet, which Step 7 now reads, so nothing uses this script's `results/circle_fit_slices.csv` any more.
 
 ## `loopclose.py` / `loopclose.R` — never run, produced nothing
 

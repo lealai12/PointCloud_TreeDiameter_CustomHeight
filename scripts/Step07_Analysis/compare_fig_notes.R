@@ -10,13 +10,12 @@
 # the fig is in the ring: that has to be checked in the RGB slices.
 #
 # PART 1 -- fig noted vs. no fig noted, at the PaintMarker site on every tree
-# NOT in PAINT_DBH_TREES (the above-buttress paint marks). All five methods
-# plus the circle fit (circle_fit_slices.R, run it first).
+# NOT in PAINT_DBH_TREES (the above-buttress paint marks). All six methods.
 #
 # PART 2 -- field_accuracy_all_sites_error.png without the fig paint sites:
 # every Dendrometer site, plus the PaintMarker site on every tree not in
 # FIG_TREES. Signed % bars per tree + site with the mm error printed on each,
-# the four cloud methods plus the circle fit. A Dendrometer site stays in even on a fig tree
+# the five cloud methods. A Dendrometer site stays in even on a fig tree
 # (3853), since the fig note there is about the band.
 #
 # Both parts drop EXCLUDE_SITES. No row is dropped for having a large error.
@@ -48,7 +47,6 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 FLAG_THRESHOLD  <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: DBH, not DAB. Left out of Part 1, which compares DAB paint sites only (DJ, 2026-09-28)
-CIRCLE_CSV <- file.path(outdir, "circle_fit_slices.csv")   # circle fit per slice, written by circle_fit_slices.R (run it first)
 EXCLUDE_SITES   <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
 # Trees with a fig noted in the BCI 50ha dendrometer census Notes
 # (BCI50ha_20tags_paintDiam_fullrecord.xlsx, sheet "Dendrometer Data"):
@@ -69,14 +67,6 @@ raw <- read_excel(sheet) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
-# circle fit per tree + site, from circle_fit_slices.R (run it first)
-circle <- if (file.exists(CIRCLE_CSV)) {
-  read.csv(CIRCLE_CSV, colClasses = c(tree = "character")) %>% select(tree, site, Circle = circle_diameter_mm)
-} else {
-  cat(sprintf("[note] %s not found: run circle_fit_slices.R first. The circle fit is left out.\n", CIRCLE_CSV))
-  data.frame(tree = character(), site = character(), Circle = numeric())
-}
-
 acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   transmute(
     tree                        = Tree_Tag,
@@ -84,6 +74,7 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
     reading                     = num(.data[[FIELD_COL[[s]]]]),
     ForestScanner               = num(.data[[sprintf("%s_ForestScanner_Diameter_mm", s)]]),
     Python_true_hull            = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", s)]]),
+    Circle                      = num(.data[[sprintf("%s_CircleFit_pythonScript_Diameter_mm", s)]]),
     R                           = num(.data[[sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", s)]]),
     bin_hull_FixedAngle         = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", s)]]),
     bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
@@ -97,8 +88,7 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   filter(!is.na(reading), !is.na(Python_true_hull)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
   mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"),
-         fig  = factor(if_else(tree %in% FIG_TREES, "Fig noted", "No fig noted"), c("Fig noted", "No fig noted"))) %>%
-  left_join(circle, by = c("tree", "site"))
+         fig  = factor(if_else(tree %in% FIG_TREES, "Fig noted", "No fig noted"), c("Fig noted", "No fig noted")))
 
 if (nrow(acc_all) == 0) {
   cat("[fig-notes comparison skipped] no field readings in the sheet yet\n")
@@ -151,7 +141,7 @@ two_row_plot <- function(d, group_col, fills, title, subtitle, label_col = "tree
 }
 
 # ===========================================================================
-# PART 1 -- fig noted vs. no fig noted, DAB paint sites, all five methods plus the circle fit
+# PART 1 -- fig noted vs. no fig noted, DAB paint sites, all six methods
 # ===========================================================================
 acc <- acc_all %>% filter(site == "PaintMarker", !tree %in% PAINT_DBH_TREES)
 

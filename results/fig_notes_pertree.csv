@@ -32,10 +32,10 @@
 "7772","PaintMarker","No fig noted",1570,"ITSMe concave hull",1595.4,25.4,1.62,FALSE
 "4146","PaintMarker","No fig noted",1607,"ITSMe concave hull",1675,68,4.23,FALSE
 "4694","PaintMarker","No fig noted",1879,"ITSMe concave hull",1876.5,-2.5,-0.13,FALSE
-"4524","PaintMarker","Fig noted",1058,"Circle fit (least squares)",997.4,-60.6,-5.73,TRUE
-"5027","PaintMarker","Fig noted",1365,"Circle fit (least squares)",1340.2,-24.8,-1.82,FALSE
-"7163","PaintMarker","Fig noted",1752,"Circle fit (least squares)",1769.3,17.3,0.99,FALSE
-"1993","PaintMarker","Fig noted",2133,"Circle fit (least squares)",2232.4,99.4,4.66,FALSE
-"7772","PaintMarker","No fig noted",1570,"Circle fit (least squares)",1567.1,-2.9,-0.18,FALSE
-"4146","PaintMarker","No fig noted",1607,"Circle fit (least squares)",1605.1,-1.9,-0.12,FALSE
-"4694","PaintMarker","No fig noted",1879,"Circle fit (least squares)",1813.7,-65.3,-3.48,FALSE
+"4524","PaintMarker","Fig noted",1058,"Circle fit (least squares)",997,-61,-5.77,TRUE
+"5027","PaintMarker","Fig noted",1365,"Circle fit (least squares)",1340,-25,-1.83,FALSE
+"7163","PaintMarker","Fig noted",1752,"Circle fit (least squares)",1769,17,0.97,FALSE
+"1993","PaintMarker","Fig noted",2133,"Circle fit (least squares)",2232,99,4.64,FALSE
+"7772","PaintMarker","No fig noted",1570,"Circle fit (least squares)",1567,-3,-0.19,FALSE
+"4146","PaintMarker","No fig noted",1607,"Circle fit (least squares)",1605,-2,-0.12,FALSE
+"4694","PaintMarker","No fig noted",1879,"Circle fit (least squares)",1814,-65,-3.46,FALSE
