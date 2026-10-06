@@ -18,7 +18,7 @@ The scripts, and what each one answers:
 
 Steps:
 1. Enter the field readings in the sheet, in mm (Dendrometer_FieldDiameter, ForestGeoPaint_FieldDiameter_mm, DendroPaint_FieldDiameter_mm), and close it in Excel.
-2. In each script's CONFIG, set EXCLUDE_SITES, PAINT_DBH_TREES and EXCLUDE_SENSITIVITY for your trees, FIG_TREES in compare_fig_notes.R, and the census record path in compare_field_record.R (or set DAB_FIELD_RECORD).
+2. In each script's CONFIG, set EXCLUDE_SITES, PAINT_DBH_TREES and EXCLUDE_SENSITIVITY (tree + site pairs, like "3853 ForestGeoPaint") for your trees, FIG_TREES in compare_fig_notes.R, and the census record path in compare_field_record.R (or set DAB_FIELD_RECORD).
 3. Run every script from the repo root, the per-source ones once for each source:
 
     Rscript scripts/Step07_Analysis/validate_field_accuracy.R ForestGeoPaint
@@ -40,13 +40,17 @@ Steps:
 
 Note: The groups are set by measurement type, not a diameter threshold. "Band (dendrometer)" is the Dendrometer site. "DBH (low paint mark)" is the paint site on the PAINT_DBH_TREES, whose mark sits at breast height below any buttress. "DAB (above buttress)" is every other paint site, measured above the buttress.
 
-Note: No row is dropped for having a large error. The headline metrics use every tree-site, flagged rings included. Each summary adds sensitivity rows without flagged rings (MaxEdgeFrac >= 0.5), overall and by group, and one without the trees in EXCLUDE_SENSITIVITY if that list isn't empty. Tree + site pairs in EXCLUDE_SITES are left out of everything.
+Note: No row is dropped for having a large error. The headline metrics use every tree-site, flagged rings included. Each summary adds sensitivity rows without flagged rings (MaxEdgeFrac >= 0.5), overall and by group, and one without the tree + site pairs in EXCLUDE_SENSITIVITY when one of them is in the run. Tree + site pairs in EXCLUDE_SITES are left out of everything.
+
+Note: EXCLUDE_SENSITIVITY is "3853 ForestGeoPaint". 3853's red field value (967 mm) sits about 360 mm under every scan method and under its own blue value (1330 mm). It isn't a typo, but it may be a bad measurement. It stays in the headline numbers, and the summaries, average bars and fig-note table each have a version without it. The blue run has no such row, since 3853's blue value is fine.
+
+Note: ForestScanner's errors are much larger than the cloud methods', and on a shared axis they squeeze the cloud methods flat. So where they share an axis, the axis is set by the cloud methods. A ForestScanner value past it is drawn at the edge and its real value is printed on the bar or in the caption. Figures where ForestScanner has its own panel or a log axis are unchanged.
 
 Note: Where a tree's red and blue marks are at the same Y, both sources use the same polished slice, so only the field value differs. The method agreement in compare_hull_methods.R counts that slice once.
 
 Note: Six methods are compared: the five cloud methods from Step 6 and ForestScanner's own reading. Which one to report depends on what the reference instrument measures and on the results. The circle fit is in every field comparison, but not in compare_hull_methods.R's method-agreement and bin-width figures, which pair the hull methods with each other.
 
-Note: ForestScanner is left out of the hull_comparison error_mm figure, since its errors run to over a metre and would stretch the axis. Its range, mean and count are printed in the figure caption.
+Note: ForestScanner is left out of the hull_comparison error_mm figure completely. Its range, mean and count are printed in the figure caption.
 
 Note: scripts/plot_style.R, at the scripts/ root, holds the shared method names, colours and shapes, so every figure uses one vocabulary.
 

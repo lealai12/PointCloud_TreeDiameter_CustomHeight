@@ -54,9 +54,11 @@ Neither is universally better, and **the right choice depends on your stand**. F
 
 - **⚠️ Clouds are Y-up.** ForestScanner (ARKit) exports have the **trunk axis along Y, not Z**. Cross-sections are circular only in the **X–Z plane** (slice at constant **Y**). **Always pass `--up-axis y`.** Slicing along Z cuts a vertical slab down the trunk and produces a two-band scatter, not a ring.
 - **Everything is `.ply`, end to end.** The scanner exports `.ply`, CloudCompare saves `.ply`, every script reads `.ply`. **Nothing converts anything** — there is no `.bin` → `.ply` export step in this workflow.
-- **Operator-chosen height.** The measurement height is a picked point on the section, recorded per site. A tree may be measured at several sites — **TopFlag**, **LowerFlag**, **PaintMarker** and/or **Dendrometer** — each in its own set of columns.
+- **Operator-chosen height.** The measurement height is a picked point on the section, recorded per site. A tree may be measured at several sites: **TopFlag**, **LowerFlag**, **ForestGeoPaint**, **DendroPaint** and **Dendrometer**. Each site has its own set of columns.
 - **Units.** Point-cloud coordinates & heights are in **metres**; recorded **diameters are in millimetres** (`_mm` columns) to match the dendrometer data.
-- **Only sites with a field reading enter the accuracy comparison** — in this project that means **Dendrometer** and **PaintMarker**. The flag sites are cloud-only points for a height profile.
+- **Only sites with a field reading enter the accuracy comparison.** In this project that means the Dendrometer bands and the two paint marks. The flag sites are cloud-only points for a height profile.
+- **There are two kinds of paint mark.** ForestGeoPaint is the red ForestGEO census mark. DendroPaint is the blue mark from the dendrometer program. The two programs measured separately, so each mark has its own field diameter and date, and Step 7 runs once for each. On some trees both marks are at the same height, so both use the same slice and only the field value differs.
+- **Earlier versions had one PaintMarker site.** It mixed the two kinds of mark, so it was split into ForestGeoPaint and DendroPaint and is no longer used. Its old results are kept in `results/archive_paintmarker_2026-10-06/` as the record.
 
 ---
 
@@ -76,7 +78,8 @@ PointCloud_TreeDiameter_CustomHeight/
 │   ├── Step07_Analysis/          # validate_field_accuracy.R,
 │   │                             #   compare_hull_methods.R, plot_error_by_size.R,
 │   │                             #   bin_fixed_angle_demo.R, plot_by_method.R,
-│   │                             #   compare_fig_notes.R (R-only by design)
+│   │                             #   compare_fig_notes.R, compare_field_record.R,
+│   │                             #   compare_paint_sources.R (R-only by design)
 │   ├── Unused/                   # retired + never-run scripts, kept as the record
 │   ├── fit_dab.py / fit_dab.R    # the originals cut_slice.* was copied from — untouched
 │   ├── sheet_batch.py / .R       # --from-sheet plumbing (read manifest, write results back)
@@ -279,20 +282,20 @@ R's write-back prefers shelling out to `python`/`python3` (override via `SHEET_B
 
 Stop here and check, because **Step 7 has two failure modes and only one of them is loud.**
 
-- **A missing column errors out immediately.** The analysis scripts name their columns directly (`Dendrometer_FieldDiameter`, `PaintMarker_FieldDiameter_mm`, `<Site>_DendroTape_pythonScript_Diameter_mm`, `Tree_Tag`, …). If one isn't in the sheet, R stops with "object not found." Annoying, but you'll know.
+- **A missing column errors out immediately.** The analysis scripts name their columns directly (`Dendrometer_FieldDiameter`, `ForestGeoPaint_FieldDiameter_mm`, `DendroPaint_FieldDiameter_mm`, `<Site>_DendroTape_pythonScript_Diameter_mm`, `Tree_Tag`, …). If one isn't in the sheet, R stops with "object not found." Annoying, but you'll know.
 - **A missing *value* is dropped in silence.** Each script filters to rows that have both a reading and an estimate. Any row missing either just disappears — no warning — and the metrics are computed over whatever survived. Twelve trees measured but three readings not yet entered gives you a clean-looking summary of nine, and nothing on screen says so.
 
 So the thing to verify is **completeness**, not correctness:
 
 - [ ] **Every column the analysis names actually exists.**
-- [ ] **Field readings** (`Dendrometer_FieldDiameter`, `PaintMarker_FieldDiameter_mm`) — never written by any script; they're your ground truth, and a row without one silently leaves the comparison.
+- [ ] **Field readings** (`Dendrometer_FieldDiameter`, `ForestGeoPaint_FieldDiameter_mm`, `DendroPaint_FieldDiameter_mm`). No script writes these. They are your ground truth, and a row without one silently leaves the comparison.
 - [ ] **Diameter columns** — `--from-sheet` wrote these, one column per script per site. Measured from the CLI instead? Transcribe from your `--out` CSVs now.
 - [ ] **Check `n` in the summary output against the number of trees you expect.** Cheapest way to catch a silent drop.
 - [ ] **Picked heights** and **triage flags** — should already be there.
 - [ ] **Format is `.xlsx`**, not CSV.
 - [ ] **The Step 7 site lists match your trees** (see below).
 
-> **⚠️ The analysis scripts' `CONFIG` covers the sheet path and this project's site lists — not the column names.** Each Step 7 script's CONFIG holds `EXCLUDE_SITES` (tree + site pairs left out of everything), `PAINT_DBH_TREES` (trees whose paint mark sits at breast height, so it counts as DBH), `EXCLUDE_SENSITIVITY` (trees for an extra "excluding" row, empty by default), `FLAG_THRESHOLD` (0.5) and, in `compare_fig_notes.R`, `FIG_TREES`. **Set those for your own trees.** The column names are written into the code, so reusing the scripts on a differently-shaped sheet means editing them, not just CONFIG. They were written to settle this project's method question rather than as general tools.
+> **⚠️ The analysis scripts' `CONFIG` covers the sheet path and this project's site lists — not the column names.** Each Step 7 script's CONFIG holds `EXCLUDE_SITES` (tree + site pairs left out of everything), `PAINT_DBH_TREES` (trees whose paint mark sits at breast height, so it counts as DBH), `EXCLUDE_SENSITIVITY` (tree + site pairs for an extra "excluding" row), `FLAG_THRESHOLD` (0.5) and, in `compare_fig_notes.R`, `FIG_TREES`. **Set those for your own trees.** The column names are written into the code, so reusing the scripts on a differently-shaped sheet means editing them, not just CONFIG. They were written to settle this project's method question rather than as general tools.
 
 > **⚠️ Mind where `--out` writes.** Paths resolve against your shell's current directory, which is easy to get wrong when running repo scripts against data held elsewhere. If your tree labels are sensitive, keep script output out of any git-tracked folder and check `git status` before committing.
 
@@ -300,23 +303,31 @@ So the thing to verify is **completeness**, not correctness:
 
 ## Step 7 — (R) Validate & compare
 
+Most of these run once per paint source. Give the source as the first argument, ForestGeoPaint or DendroPaint. It goes into every output name (`<src>` below).
+
 ```bash
-Rscript scripts/Step07_Analysis/validate_field_accuracy.R   # -> results/field_accuracy_*
-Rscript scripts/Step07_Analysis/compare_hull_methods.R      # -> results/hull_comparison_*
-Rscript scripts/Step07_Analysis/plot_error_by_size.R        # -> results/error_by_size_*
-Rscript scripts/Step07_Analysis/bin_fixed_angle_demo.R      # -> results/bin_fixed_angle_demo_all_sites.*
-Rscript scripts/Step07_Analysis/plot_by_method.R            # -> results/plots/by_method_*
-Rscript scripts/Step07_Analysis/compare_fig_notes.R         # -> results/fig_notes_*
+Rscript scripts/Step07_Analysis/validate_field_accuracy.R <src>   # -> results/field_accuracy_*
+Rscript scripts/Step07_Analysis/compare_hull_methods.R    <src>   # -> results/hull_comparison_*
+Rscript scripts/Step07_Analysis/plot_error_by_size.R      <src>   # -> results/error_by_size_<src>_*
+Rscript scripts/Step07_Analysis/plot_by_method.R          <src>   # -> results/plots/by_method_<src>_*
+Rscript scripts/Step07_Analysis/compare_fig_notes.R       <src>   # -> results/fig_notes_<src>_*
+Rscript scripts/Step07_Analysis/compare_field_record.R    <src>   # -> results/field_record_*
+Rscript scripts/Step07_Analysis/compare_paint_sources.R           # -> results/paint_sources_*
+Rscript scripts/Step07_Analysis/bin_fixed_angle_demo.R            # -> results/bin_fixed_angle_demo_all_sites.*
 ```
 
 Run these **from the repo root** — they `source()` `scripts/plot_style.R` with a repo-relative path. They read the working sheet and nothing else (`DAB_SHEET` overrides the path). Output goes to `results/`, or to the folder in `DAB_RESULTS`. **`results/` is git-tracked**, so anything written there goes public when the repo is pushed.
 
 How the comparisons are set up:
 
-- **Rows are tree + site**, over the Dendrometer and PaintMarker sites, since a tree can have a field reading at both.
-- **DBH vs DAB is by measurement type, not a size threshold**: DBH is the Dendrometer site plus the paint marks listed in `PAINT_DBH_TREES`; DAB is every other paint mark.
-- **No row is dropped for having a large error.** The headline metrics use every tree-site, flagged rings included. Each summary adds a sensitivity row without flagged rings (`MaxEdgeFrac` ≥ 0.5).
+- **Rows are tree + site.** Each run uses the Dendrometer bands and that source's paint marks. The bands are the same in both runs.
+- **Groups are by measurement type, not a size threshold.** "Band" is the Dendrometer site. "DBH" is the paint mark on the trees in `PAINT_DBH_TREES`, which sits at breast height below any buttress. "DAB" is every other paint mark, measured above the buttress.
+- **No row is dropped for having a large error.** The headline metrics use every tree-site, flagged rings included. Each summary adds sensitivity rows without flagged rings (`MaxEdgeFrac` ≥ 0.5), and without the tree + site pairs in `EXCLUDE_SENSITIVITY`.
+- **One field value is in question.** Tree 3853's red value (967 mm) sits about 360 mm under every scan method and under its own blue value (1330 mm). It isn't a typo, but it may be a bad measurement. It stays in the headline numbers, and every summary has a row without it.
+- **`compare_paint_sources.R`** puts the two sources side by side. It gives each method's error at the red marks and at the blue marks, and for the trees with both marks it compares every estimate against both field values.
 - **`compare_fig_notes.R`** compares the buttressed paint sites on trees with a fig noted in the census notes against those without, and redraws the main error chart without the fig paint sites. It was added after the pattern was seen, so it is exploratory.
+- **`compare_field_record.R`** shows how much the census's own paint-mark diameters differ from each other, next to each method's error.
+- **ForestScanner's errors are much larger than the cloud methods'.** Where they share an axis, the axis is set by the cloud methods. A ForestScanner value past it is drawn at the edge, and its real value is printed on the bar or in the caption.
 
 Watch the `[Python vs R cross-check]` lines `compare_hull_methods.R` prints — a convex hull is deterministic, so the hull and circle-fit twins should agree to **0.000 mm**. The ITSMe line can read up to about 0.1 mm, since both are stored in tenths of a mm and the port rounds an occasional point the other way. Anything larger is a bug, not a method difference.
 
@@ -351,10 +362,11 @@ Finally, log anything nonstandard in `Tree_notes.md` — the qualitative story t
           missing VALUE = row silently dropped. Confirm the field readings and
           diameter columns are complete, set the Step 7 site lists, then
           sanity-check `n` in the summary.
-- [ ]  7. (R) Rscript scripts/Step07_Analysis/validate_field_accuracy.R
-          (R) Rscript scripts/Step07_Analysis/compare_hull_methods.R  <- watch the
-              Python-vs-R cross-check lines; hulls or circle nonzero = real bug
+- [ ]  7. (R) Rscript scripts/Step07_Analysis/validate_field_accuracy.R <src>
+          (R) Rscript scripts/Step07_Analysis/compare_hull_methods.R <src>  <- watch the
+              Python-vs-R cross-check lines. Hulls or circle nonzero = real bug
           (R) the other Step 7 scripts, for the figures
+          <src> is ForestGeoPaint or DendroPaint. Run each script once for each.
 - [ ]  8. (manual) Log anything nonstandard in Tree_notes.md
 ```
 
@@ -399,12 +411,14 @@ Every script in the repo, grouped by where it sits in the chain. Paths are relat
 
 | Script | Purpose |
 |---|---|
-| `Step07_Analysis/validate_field_accuracy.R` | The core feasibility result: every method vs. field reading, two scopes (Dendrometer site only, and both sites), grouped by measurement type |
-| `Step07_Analysis/compare_hull_methods.R` | Raw true hull vs. denoised binned hull — against field reading and against each other. Prints the Python-vs-R cross-check |
-| `Step07_Analysis/plot_error_by_size.R` | Every method on one axis, DBH vs DAB, to compare the *shape* of each error distribution |
+| `Step07_Analysis/validate_field_accuracy.R` | The core feasibility result: every method vs. field reading, two scopes (the bands only, and the bands with one paint source), grouped by measurement type. Run once per source |
+| `Step07_Analysis/compare_hull_methods.R` | Raw true hull vs. denoised binned hull, against field reading and against each other. Prints the Python-vs-R cross-check. Run once per source |
+| `Step07_Analysis/plot_error_by_size.R` | Every method on one axis, by group, to compare the *shape* of each error distribution. Run once per source |
 | `Step07_Analysis/bin_fixed_angle_demo.R` | Coverage view: the method applied to every processed site, not just the validated subset |
-| `Step07_Analysis/plot_by_method.R` | The same comparisons split out, one panel per method: scatter, % and mm error, box plots, Bland-Altman |
-| `Step07_Analysis/compare_fig_notes.R` | Buttressed paint sites, fig noted vs. not, and the main error chart without the fig paint sites. Exploratory |
+| `Step07_Analysis/plot_by_method.R` | The same comparisons split out, one panel per method: scatter, % and mm error, box plots, Bland-Altman. Run once per source |
+| `Step07_Analysis/compare_fig_notes.R` | Buttressed paint sites, fig noted vs. not, and the main error chart without the fig paint sites. Exploratory. Run once per source |
+| `Step07_Analysis/compare_field_record.R` | How much the census's own paint-mark diameters differ from each other, next to each method's error. Run once per source |
+| `Step07_Analysis/compare_paint_sources.R` | The red and blue paint marks side by side: each method's error at each, and both field values on the trees that have both marks |
 | `plot_style.R` *(root)* | Shared method labels/colours/shapes, sourced by the analysis scripts so every figure uses one vocabulary |
 
 ### `Unused/` — not part of the workflow
@@ -493,7 +507,7 @@ Menu wording varies slightly by CloudCompare version; if a path differs on yours
 - **Angular coverage over-reports on a broken ring**, because it's measured from the centroid. A ring can read 360° and still have a whole arc missing — that's what `MaxEdgeFrac` is for.
 - **But `MaxEdgeFrac` can't tell a gap from a flute.** A deep concavity produces a long hull edge too, and a girth tape would bridge it legitimately. Look at the picture before discarding a flagged site.
 - **`--axis-ply` needs a tall segment, never a thin slice** — see [If the stem leans](#if-the-stem-leans).
-- **Roots or stems growing over the bark inflate every hull.** On this project the four largest buttressed over-reads were the four buttressed trees with a fig noted in the census records, and the circle fit showed no such effect. Look at the ring in RGB before trusting a hull on a tree with a strangler fig or a heavy liana.
+- **Roots or stems growing over the bark inflate every hull.** On this project the hulls read higher on buttressed trees with a fig noted in the census records than on trees without one, and the circle fit less so. The pattern was found after the data was seen, so treat it as a lead, not a result. Look at the ring in RGB before trusting a hull on a tree with a strangler fig or a heavy liana.
 - **The `--from-sheet` manifest must be `.xlsx`.** There is no CSV reader, and adding one has broken the write-back path before. (Script `--out` files are still CSVs — that's output, not input.)
 - **`Unused/loopclose.py` on a small flap should report LOW fitness (~0.2–0.3).** High fitness there means it collapsed onto the wrong surface.
 - **The low-confidence RMS flag is miscalibrated for large, rough trunks** — it fires routinely on big buttressed boles that are fine, and doesn't catch every real outlier. Don't treat it as a reliable data-quality signal on large trees without also checking the numbers.

@@ -12,6 +12,7 @@
 #   1. MAE (and bias, MAPE, n) per method, red against blue, over each source's
 #      paint sites, overall and by group (DBH low marks, DAB above buttress).
 #      The Dendrometer bands are the same in both, so they are left out here.
+#      Extra "excl." sets leave out the EXCLUDE_SENSITIVITY pairs.
 #   2. For trees with both sources: every scan estimate against both field
 #      values, and the difference between the two field values. Where the two
 #      marks share a Y the slice is the same, so only the reference differs.
@@ -42,6 +43,7 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 PAINT_DBH_TREES <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height: DBH, not DAB (DJ, 2026-09-28)
 EXCLUDE_SITES   <- character(0)   # tree + site pairs left out, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
+EXCLUDE_SENSITIVITY <- c("3853 ForestGeoPaint")   # tree + site pairs for extra "excl." sets, empty = none. 3853's red field value (967 mm) is probably a bad measurement, not a typo: every method and the blue value read about 1330 (DJ, 2026-10-06)
 SOURCES    <- c(ForestGeoPaint = "Red (ForestGEO)", DendroPaint = "Blue (dendrometer program)")
 Y_COL      <- c(ForestGeoPaint = "Y_value_ForestGeoPaint (Red)", DendroPaint = "Y_value_DendroPaint (Blue)")   # named this way in the sheet (DJ, 2026-10-06)
 METHODS    <- c(ForestScanner = "ForestScanner", Python_true_hull = "DendroTape_pythonScript",
@@ -71,10 +73,21 @@ paint <- bind_rows(lapply(names(SOURCES), function(s) {
 stats <- function(d, label) d %>% filter(!is.na(est)) %>% group_by(source, method_label) %>%
   summarise(set = label, n = n(), bias = mean(est - field), MAE = mean(abs(est - field)),
             RMSE = sqrt(mean((est - field)^2)), MAPE = mean(100 * abs(est - field) / field), .groups = "drop")
-mae <- bind_rows(stats(paint, "all paint sites"),
+# sensitivity sets without the EXCLUDE_SENSITIVITY pairs (the headline sets keep them)
+sens     <- paint %>% filter(paste(tree, source) %in% EXCLUDE_SENSITIVITY)
+excl_tag <- sprintf(", excl. %s", paste(unique(sprintf("%s %s", sens$tree,
+                    c(ForestGeoPaint = "Red", DendroPaint = "Blue")[sens$source])), collapse = ", "))
+paint_s  <- paint %>% filter(!paste(tree, source) %in% EXCLUDE_SENSITIVITY)
+SETS <- c("all paint sites", if (nrow(sens) > 0) paste0("all paint sites", excl_tag),
+          "DBH (low paint mark)", "DAB (above buttress)",
+          if (nrow(sens) > 0) paste0("DAB (above buttress)", excl_tag))
+mae <- bind_rows(stats(paint, SETS[1]),
+                 if (nrow(sens) > 0) stats(paint_s, SETS[2]),
                  stats(paint %>% filter(group == "DBH (low paint mark)"), "DBH (low paint mark)"),
-                 stats(paint %>% filter(group == "DAB (above buttress)"), "DAB (above buttress)")) %>%
-  mutate(source = SOURCES[source]) %>% relocate(set) %>% arrange(set, method_label, source)
+                 stats(paint %>% filter(group == "DAB (above buttress)"), "DAB (above buttress)"),
+                 if (nrow(sens) > 0) stats(paint_s %>% filter(group == "DAB (above buttress)"), SETS[5])) %>%
+  mutate(source = SOURCES[source]) %>% relocate(set) %>%
+  arrange(factor(set, SETS), method_label, source)
 write.csv(mae, file.path(outdir, "paint_sources_mae.csv"), row.names = FALSE)
 cat("-- MAE per method, red against blue (paint sites only; the bands are the same in both) --\n")
 print(as.data.frame(mae %>% mutate(across(c(bias, MAE, RMSE), round), MAPE = round(MAPE, 1)) %>%
@@ -107,18 +120,28 @@ print(as.data.frame(both %>% filter(method %in% c("Convex hull", "Circle fit (le
   mutate(across(where(is.double), ~ round(.x, 2)))), row.names = FALSE)
 
 # ---- figure: MAE per method, red next to blue
-pd <- mae %>% mutate(set = factor(set, c("all paint sites", "DBH (low paint mark)", "DAB (above buttress)")),
-                     source = factor(source, SOURCES))
-p <- ggplot(pd, aes(method_label, MAE, fill = source)) +
+# Each panel's axis is set by the cloud methods (DJ, 2026-10-06). A ForestScanner
+# bar taller than 1.3 x the tallest cloud-method bar in its panel is cut there
+# and labelled with its full value.
+pd <- mae %>% mutate(set = factor(set, SETS), source = factor(source, SOURCES)) %>%
+  group_by(set) %>%
+  mutate(cap      = 1.3 * max(MAE[method_label != "ForestScanner (in-app)"]),
+         cut      = MAE > cap,
+         MAE_plot = pmin(MAE, cap),
+         bar_text = if_else(cut, sprintf("%.0f mm, n=%d", MAE, n), sprintf("n=%d", n))) %>%
+  ungroup()
+p <- ggplot(pd, aes(method_label, MAE_plot, fill = source)) +
   geom_col(position = position_dodge(0.8), width = 0.7) +
-  geom_text(aes(label = sprintf("n=%d", n)), position = position_dodge(0.8), vjust = -0.3, size = 2.6) +
+  geom_text(aes(label = bar_text), position = position_dodge(0.8), vjust = -0.3, size = 2.6) +
   facet_wrap(~ set, ncol = 1, scales = "free_y") +
   scale_fill_manual(values = setNames(c("#CC3311", "#56B4E9"), SOURCES), name = "Paint source") +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
   labs(title = "Mean Absolute Error per Method, Red (ForestGEO) and Blue (Dendrometer Program) Paint Marks",
-       subtitle = "Each source against its own field diameter, at its own paint sites. The y axis differs per panel.",
+       subtitle = paste("Each source against its own field diameter, at its own paint sites. The y axis differs per panel.",
+                        "Each axis is set by the cloud methods. A ForestScanner bar past it is cut and labelled with its full MAE.",
+                        sep = "\n"),
        x = NULL, y = "MAE (mm)") +
   theme_minimal(base_size = 11) +
   theme(axis.text.x = element_text(angle = 25, hjust = 1), legend.position = "bottom")
-ggsave(file.path(plotdir, "paint_sources_mae.png"), p, width = 11, height = 10, dpi = 130)
+ggsave(file.path(plotdir, "paint_sources_mae.png"), p, width = 11, height = 3 + 2.6 * length(SETS), dpi = 130)
 cat(sprintf("\nWrote %s/paint_sources_{mae,both_trees}.csv and %s/paint_sources_mae.png\n", outdir, plotdir))

@@ -28,7 +28,7 @@ Steps:
     python  scripts/Step06_Measure/circle_fit.py                 --from-sheet --up-axis y
     Rscript scripts/Step06_Measure/circle_fit.R                  --from-sheet --up-axis y
 
-3. Repeat steps 1 and 2 for each site: TopFlag, LowerFlag, PaintMarker, Dendrometer.
+3. Repeat steps 1 and 2 for each site: TopFlag, LowerFlag, ForestGeoPaint, DendroPaint, Dendrometer.
 4. Check the <Site>_<Method>_MaxEdgeFrac columns. For anything over 0.5, open the ring's picture and decide whether it is a real gap in the scan or a flute the tape would bridge anyway.
 
 Note: The gap check flags, it doesn't block. Every ring gets a diameter, and MaxEdgeFrac records the longest hull edge as a fraction of the diameter. A flagged ring is drawn with its long edge in magenta, labelled PARTIAL RING. The sheet value is rounded to 3 decimals, and the scripts decide on the unrounded value, so a flagged ring can read exactly 0.500 in the sheet (two do on the second pass). A > 0.5 filter would keep them.
@@ -38,6 +38,8 @@ Note: ITSMe underestimates on incomplete scans. Where an arc is missing, the con
 Note: ITSMe also re-cuts its own band from the sheet height, even though the polished ring is already cut. That second cut loses a few points sitting right on the band edge to rounding: 2 of 195,304 on 5926__LowerFlag and 4 of 180,236 on 2033__TopFlag. The other scripts measure the polished ring whole and lost none across all 41 slices. The loss is far too small to move a diameter, but it means the ring you polish is exactly the ring this method measures, and not quite the ring ITSMe measures.
 
 Note: ITSMe has no Python package, so dab_itsme_concave_hull.py re-implements what ITSMe's diameter_slice_pc() does, including the concaveman concave hull ITSMe calls. On all 41 second-pass slices it matches the R run exactly on the circle fit, and to within 0.1 mm on the concave-hull diameter, where an occasional point rounds the other way. It is slower, about 30 seconds a slice.
+
+Note: There are two paint-mark sites. ForestGeoPaint is the red ForestGEO census mark and DendroPaint is the blue dendrometer-program mark. In this project's sheet their height columns are named Y_value_ForestGeoPaint (Red) and Y_value_DendroPaint (Blue), so set HEIGHT_COL to those for ITSMe. Where both marks are at the same height, copy the polished ring to both names instead of polishing it twice.
 
 Note: Diameters are written to the sheet in whole mm, except ITSMe (both versions), which writes tenths of a mm. The CSVs keep full precision.
 
@@ -49,3 +51,4 @@ Kept as the record: fit_dab.py and fit_dab.R at the scripts/ root are the untouc
 This project's run:
 - First pass: 32 of 32 tree-sites measured.
 - Second pass: 41 of 41 tree-sites measured by the dendro_tape, binned and circle_fit scripts, Python and R identical on every one, and by both ITSMe scripts, within 0.1 mm of each other.
+- Paint sources: 19 of 19 paint sites measured by every script, 8 red and 11 blue. Python and R identical on every one. 15 rings were reused from the old PaintMarker site and gave the same values as before. 4 were new (6647 and 3853, red and blue).

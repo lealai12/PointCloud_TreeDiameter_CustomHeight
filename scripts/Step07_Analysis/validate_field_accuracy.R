@@ -72,7 +72,7 @@ sheet  <- Sys.getenv("DAB_SHEET",
 outdir <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
-EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
+EXCLUDE_SENSITIVITY <- c("3853 ForestGeoPaint")   # tree + site pairs for an extra "excl." sensitivity row and average bar, empty = none. 3853's red field value (967 mm) is probably a bad measurement, not a typo: every method and the blue value read about 1330 (DJ, 2026-10-06)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: on these trees the paint site (either source) is DBH, not DAB (DJ, 2026-09-28)
 EXCLUDE_SITES       <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
@@ -102,8 +102,13 @@ site_group  <- function(site, tree) case_when(site == "Dendrometer" ~ GROUPS[1],
 FIELD_COL  <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
                        c("Dendrometer", PAINT_SOURCE))
 SITE_SHORT <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
-HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
-EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
+
+# the EXCLUDE_SENSITIVITY tree + site pairs, and the label of their sensitivity row
+sens_drop  <- function(tree, site) paste(tree, site) %in% EXCLUDE_SENSITIVITY
+sens_label <- function(tree, site) {
+  hit <- sens_drop(tree, site)
+  sprintf("excl. %s", paste(unique(sprintf("%s %s", tree[hit], SITE_SHORT[site[hit]])), collapse = ", "))
+}
 
 num   <- function(x) suppressWarnings(as.numeric(x))
 
@@ -142,6 +147,9 @@ run_scope <- function(acc, scope, title) {
     cat(sprintf("\n[%s skipped] no field readings in the sheet yet\n", scope))
     return(invisible(NULL))
   }
+  # a sensitivity row only when a listed pair is in this scope
+  HAS_SENS   <- any(sens_drop(acc$tree, acc$site))
+  EXCL_LABEL <- sens_label(acc$tree, acc$site)
 
   long <- acc %>%
     pivot_longer(c(ForestScanner, Python, R, Circle), names_to = "method", values_to = "est") %>%
@@ -183,7 +191,7 @@ run_scope <- function(acc, scope, title) {
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
-    if (HAS_SENS) summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
+    if (HAS_SENS) summ(long %>% filter(!sens_drop(tree, site)), EXCL_LABEL),
     summ(long %>% filter(!flag_drop), "excl. flagged rings"),
     if (n_distinct(acc$size) > 1) by_size else NULL
   )
@@ -203,8 +211,11 @@ run_scope <- function(acc, scope, title) {
 
   long <- long %>% mutate(method_label = relabel_method(method))
 
-  lim <- range(c(long$est, long$reading), na.rm = TRUE)
-  p1 <- ggplot(long, aes(reading, est, colour = method_label, shape = method_label)) +
+  # axis set by the cloud methods, ForestScanner past it drawn at the edge (plot_style.R)
+  fs  <- long %>% filter(method == "ForestScanner")
+  lim <- axis_lim(c(long$est[long$method != "ForestScanner"], long$reading), pad = 0.03)
+  p1 <- ggplot(long %>% mutate(est_plot = pin_to(est, lim)),
+               aes(reading, est_plot, colour = method_label, shape = method_label)) +
     geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
     geom_point(size = 3, alpha = 0.85)
   p1 <- p1 +
@@ -212,7 +223,8 @@ run_scope <- function(acc, scope, title) {
     coord_equal(xlim = lim, ylim = lim) +
     labs(title = "Estimated Diameter vs. Field Reading",
          subtitle = paste0(title, " -- dashed = 1:1"),
-         x = "Field reading (mm)", y = "Estimated diameter (mm)") +
+         x = "Field reading (mm)", y = "Estimated diameter (mm)",
+         caption = fs_off_caption(fs$tree_label, fs$est, lim, "%.0f mm", "estimates")) +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, sprintf("field_accuracy_%s_scatter.png", scope)),
          p1, width = 8.5, height = 6.8, dpi = 130)
@@ -226,24 +238,35 @@ run_scope <- function(acc, scope, title) {
   avg_pct <- long %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>%
     mutate(tree_label = "Average", reading = 1e6)
-  avg_pct_excl <- long %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
+  avg_pct_excl <- long %>% filter(!sens_drop(tree, site)) %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>%
     mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL), reading = 2e6)
   p2_data <- bind_rows(long %>% select(tree_label, reading, method, pct),
                        avg_pct, if (HAS_SENS) avg_pct_excl) %>%
     mutate(method_label = relabel_method(method))
+  # axis set by the cloud methods. A ForestScanner bar past it is cut at the
+  # edge and labelled with its full value (plot_style.R).
+  bar_lim <- axis_lim(p2_data$pct[p2_data$method != "ForestScanner"], pad = 0.1, include = 0)
+  p2_data <- p2_data %>%
+    mutate(pct_plot  = pin_to(pct, bar_lim),
+           off_label = if_else(off_axis(pct, bar_lim), sprintf("%.0f%%", pct), ""),
+           off_vjust = if_else(pct < 0, 1.3, -0.4))
 
   # Extra top headroom (12% instead of ggplot's 5% default): when one tree's
   # error dominates the range, the default expansion leaves its bar sitting
   # right against the panel edge, not clipped, but it reads that way.
-  p2 <- ggplot(p2_data, aes(reorder(tree_label, reading), pct, fill = method_label)) +
+  p2 <- ggplot(p2_data, aes(reorder(tree_label, reading), pct_plot, fill = method_label)) +
     geom_col(position = position_dodge(0.8), width = 0.7) +
+    geom_text(aes(label = off_label, vjust = off_vjust), position = position_dodge(0.8),
+              size = 2.8, colour = "grey20") +
     geom_hline(yintercept = 0, colour = "grey40") +
-    scale_y_continuous(expand = expansion(mult = c(0.05, 0.12))) +
+    scale_y_continuous(expand = expansion(mult = c(0.08, 0.12))) +
     scale_fill_method() +
     labs(title = "Signed Percent Error vs. Field Reading",
          subtitle = paste0(title, " -- trees ordered by reading, plus per-method averages"),
-         x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]") +
+         x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]",
+         caption = if (any(p2_data$off_label != ""))
+           "The axis is set by the cloud methods. A ForestScanner bar past it is cut at the edge and labelled with its full value.") +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   ggsave(file.path(plotdir, sprintf("field_accuracy_%s_error.png", scope)),

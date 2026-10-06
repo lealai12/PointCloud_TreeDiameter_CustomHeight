@@ -18,3 +18,4 @@ Note: This step is not optional in practice. On the first pass, polishing change
 This project's run:
 - First pass: 32 of 32 rings polished.
 - Second pass: 41 of 41 rings polished.
+- Paint sources: 4 of 4 new rings polished.

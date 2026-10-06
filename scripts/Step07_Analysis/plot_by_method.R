@@ -42,7 +42,7 @@ sheet   <- Sys.getenv("DAB_SHEET",
 outdir  <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
-EXCLUDE_SENSITIVITY <- character(0)   # trees dropped from an extra average bar and the Bland-Altman limits, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
+EXCLUDE_SENSITIVITY <- c("3853 ForestGeoPaint")   # tree + site pairs dropped from an extra average bar and the Bland-Altman limits, empty = none. 3853's red field value (967 mm) is probably a bad measurement, not a typo: every method and the blue value read about 1330 (DJ, 2026-10-06)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: on these trees the paint site (either source) is DBH, not DAB (DJ, 2026-09-28)
 EXCLUDE_SITES       <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
@@ -72,8 +72,13 @@ site_group  <- function(site, tree) case_when(site == "Dendrometer" ~ GROUPS[1],
 FIELD_COL  <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
                        c("Dendrometer", PAINT_SOURCE))
 SITE_SHORT <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
-HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
-EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
+
+# the EXCLUDE_SENSITIVITY tree + site pairs, and the label of their sensitivity row
+sens_drop  <- function(tree, site) paste(tree, site) %in% EXCLUDE_SENSITIVITY
+sens_label <- function(tree, site) {
+  hit <- sens_drop(tree, site)
+  sprintf("excl. %s", paste(unique(sprintf("%s %s", tree[hit], SITE_SHORT[site[hit]])), collapse = ", "))
+}
 
 num <- function(x) suppressWarnings(as.numeric(x))
 
@@ -103,6 +108,9 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   filter(!is.na(reading)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
   mutate(size = site_group(site, tree))
+# a sensitivity average only when a listed pair is in this run
+HAS_SENS   <- any(sens_drop(acc$tree, acc$site))
+EXCL_LABEL <- sens_label(acc$tree, acc$site)
 
 if (nrow(acc) == 0) {
   cat("[by-method plots skipped] no field readings in the sheet yet\n")
@@ -134,9 +142,12 @@ save_plot  <- function(p, name, w, h) ggsave(file.path(plotdir, sub("^by_method_
                                               p, width = w, height = h, dpi = 130)
 SITES_NOTE <- sprintf("Dendrometer bands and %s", SRC_LABEL)
 
-# ---- estimate vs reading: shared axes, so the panels compare directly
-lim <- range(c(long$est, long$reading), na.rm = TRUE)
-p_scatter <- ggplot(long, aes(reading, est, colour = method_label, shape = flagged)) +
+# ---- estimate vs reading: shared axes, so the panels compare directly. The
+# axis is set by the cloud methods, ForestScanner past it drawn at the edge (plot_style.R)
+fs  <- long %>% filter(method == "ForestScanner")
+lim <- axis_lim(c(long$est[long$method != "ForestScanner"], long$reading), pad = 0.03)
+p_scatter <- ggplot(long %>% mutate(est_plot = pin_to(est, lim)),
+                    aes(reading, est_plot, colour = method_label, shape = flagged)) +
   geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
   geom_point(size = 2.6, alpha = 0.9, stroke = 1) +
   facet_wrap(~ method_label, ncol = 3) +
@@ -144,7 +155,8 @@ p_scatter <- ggplot(long, aes(reading, est, colour = method_label, shape = flagg
   coord_equal(xlim = lim, ylim = lim) +
   labs(title = "Estimated Diameter vs. Field Reading, by Method",
        subtitle = paste0(SITES_NOTE, ", dashed = 1:1, ", flag_note),
-       x = "Field reading (mm)", y = "Estimated diameter (mm)") +
+       x = "Field reading (mm)", y = "Estimated diameter (mm)",
+       caption = fs_off_caption(fs$tree_label, fs$est, lim, "%.0f mm", "estimates", width = 130)) +
   theme_minimal(base_size = 11)
 save_plot(p_scatter, "by_method_scatter.png", 11, 8)
 
@@ -155,7 +167,7 @@ averages <- function(col) {
   bind_rows(
     long %>% group_by(method, method_label) %>%
       summarise(value = mean(.data[[col]]), .groups = "drop") %>% mutate(tree_label = "Average"),
-    if (HAS_SENS) long %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method, method_label) %>%
+    if (HAS_SENS) long %>% filter(!sens_drop(tree, site)) %>% group_by(method, method_label) %>%
       summarise(value = mean(.data[[col]]), .groups = "drop") %>%
       mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   )
@@ -222,11 +234,11 @@ p_box_mm <- p_box + aes(y = err) +
 save_plot(p_box_mm, "by_method_boxplot_mm.png", 11, 8)
 
 # ---- Bland-Altman: each panel gets its own bias and 95% limits, computed
-# without the EXCLUDE_SENSITIVITY trees (every tree when it is empty), like the
+# without the EXCLUDE_SENSITIVITY tree + site pairs (every site when none is in this run), like the
 # grouped figure in compare_hull_methods.R.
 # Every point is still drawn.
 ba_data  <- long %>% mutate(mean_est = (est + reading) / 2)
-ba_lines <- ba_data %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>%
+ba_lines <- ba_data %>% filter(!sens_drop(tree, site)) %>%
   group_by(method_label) %>%
   summarise(bias = mean(err), s = sd(err), .groups = "drop") %>%
   mutate(lo = bias - 1.96 * s, hi = bias + 1.96 * s)

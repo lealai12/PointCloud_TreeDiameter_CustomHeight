@@ -140,21 +140,29 @@ print(as.data.frame(long_clean %>% count(method_label, size)), row.names = FALSE
 write.csv(long_clean %>% select(tree, site, size, reading, method = method_label, est, err, pct),
           file.path(outdir, sprintf("error_by_size_%s_pertree.csv", PAINT_SOURCE)), row.names = FALSE)
 
-p <- ggplot(long_clean, aes(method_label, pct, fill = size)) +
+# axis set by the cloud methods (plot_style.R). The boxes are computed from
+# every value and cut at the edge, and a ForestScanner point past it is drawn
+# at the edge and listed in the caption.
+lim <- axis_lim(long_clean$pct[long_clean$method != "ForestScanner"], pad = 0.06, include = 0)
+fs  <- long_clean %>% filter(method == "ForestScanner")
+
+p <- ggplot(long_clean %>% mutate(pct_plot = pin_to(pct, lim)), aes(method_label, pct, fill = size)) +
   geom_hline(yintercept = 0, colour = "grey40") +
   geom_boxplot(outlier.shape = NA, alpha = 0.7, width = 0.6,
                position = position_dodge(0.7)) +
   # flagged rings get an open marker. group = size keeps the points dodged into
   # the same slots as the boxes, rather than one slot per size x flag.
-  geom_point(aes(shape = flagged, group = size),
+  geom_point(aes(y = pct_plot, shape = flagged, group = size),
              position = position_jitterdodge(jitter.width = 0.12, dodge.width = 0.7),
              size = 1.8, alpha = 0.8) +
   scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 1), guide = "none") +
   scale_fill_manual(values = GROUP_FILLS, name = "Measurement type") +
+  coord_cartesian(ylim = lim) +
   labs(title = "Signed Percent Error vs. Field Reading, by Method and Measurement Type",
        subtitle = sprintf("Every method compared against field reading, dendrometer bands and %s\n(n=%d tree-sites). Open markers = flagged ring (MaxEdgeFrac >= %.1f)",
                            SRC_LABEL, n_distinct(paste(long_clean$tree, long_clean$site)), FLAG_THRESHOLD),
-       x = NULL, y = "Error  (est - reading) / reading  [%]") +
+       x = NULL, y = "Error  (est - reading) / reading  [%]",
+       caption = fs_off_caption(sprintf("%s %s", fs$tree, SITE_SHORT[fs$site]), fs$pct, lim, "%.0f%%", "errors", width = 120)) +
   theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 

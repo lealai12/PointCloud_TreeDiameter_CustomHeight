@@ -33,3 +33,4 @@ Keep -AUTO_SAVE OFF, otherwise CloudCompare also writes an extra copy next to th
 This project's run:
 - First pass: 19 of 19 sections exported to .ply for cutting.
 - Second pass: 41 tree-sites cut, 0 failures, every ring closed.
+- Paint sources: 4 new slices cut for 6647 and 3853, one at each red and blue mark. The other 15 paint sites were at the same height as the old PaintMarker site, so those slices were reused.

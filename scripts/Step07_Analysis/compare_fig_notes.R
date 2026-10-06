@@ -21,6 +21,8 @@
 # (3853), since the fig note there is about the band.
 #
 # Both parts drop EXCLUDE_SITES. No row is dropped for having a large error.
+# Part 1's summary adds rows without the EXCLUDE_SENSITIVITY pairs, when one is
+# in the run.
 #
 # Outputs (results/, or DAB_RESULTS):
 # <src> = the paint source:
@@ -52,6 +54,7 @@ dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 FLAG_THRESHOLD  <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: DBH, not DAB. Left out of Part 1, which compares DAB paint sites only (DJ, 2026-09-28)
 EXCLUDE_SITES   <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
+EXCLUDE_SENSITIVITY <- c("3853 ForestGeoPaint")   # tree + site pairs for extra "excl." rows in the Part 1 summary, empty = none. 3853's red field value (967 mm) is probably a bad measurement, not a typo: every method and the blue value read about 1330 (DJ, 2026-10-06)
 # Trees with a fig noted in the BCI 50ha dendrometer census Notes
 # (BCI50ha_20tags_paintDiam_fullrecord.xlsx, sheet "Dendrometer Data"):
 # 1993 "TIENE FICUS" (census 16-17, 2015-16), 3853 (census 27, 2023),
@@ -193,17 +196,25 @@ if (nrow(acc) == 0) {
     null <- apply(combn(length(v), k), 2, function(i) mean(v[i]) - mean(v[-i]))
     mean(null >= obs - 1e-9)
   }
-  by_group <- group_stats(long, group = fig) %>% mutate(group = as.character(group))
-  diffs <- long %>% group_by(method = method_label) %>%
-    summarise(group = "fig minus no fig", n = n(),
-              bias_mm  = mean(err[fig == "Fig noted"]) - mean(err[fig != "Fig noted"]),
-              MAE_mm   = NA_real_, RMSE_mm = NA_real_,
-              mean_pct = mean(pct[fig == "Fig noted"]) - mean(pct[fig != "Fig noted"]),
-              MAPE     = NA_real_,
-              p_mm     = perm_p(err, fig == "Fig noted"),
-              p_pct    = perm_p(pct, fig == "Fig noted"), .groups = "drop")
-  summary_tbl <- bind_rows(by_group, diffs) %>%
-    arrange(method, factor(group, c("Fig noted", "No fig noted", "fig minus no fig")))
+  fig_summary <- function(d, suffix = "") {
+    by_group <- group_stats(d, group = fig) %>% mutate(group = paste0(as.character(group), suffix))
+    diffs <- d %>% group_by(method = method_label) %>%
+      summarise(group = paste0("fig minus no fig", suffix), n = n(),
+                bias_mm  = mean(err[fig == "Fig noted"]) - mean(err[fig != "Fig noted"]),
+                MAE_mm   = NA_real_, RMSE_mm = NA_real_,
+                mean_pct = mean(pct[fig == "Fig noted"]) - mean(pct[fig != "Fig noted"]),
+                MAPE     = NA_real_,
+                p_mm     = perm_p(err, fig == "Fig noted"),
+                p_pct    = perm_p(pct, fig == "Fig noted"), .groups = "drop")
+    bind_rows(by_group, diffs)
+  }
+  # sensitivity rows without the EXCLUDE_SENSITIVITY pairs, when one is in this run
+  sens <- long %>% filter(paste(tree, site) %in% EXCLUDE_SENSITIVITY)
+  sens_suffix <- sprintf(", excl. %s", paste(unique(sprintf("%s %s", sens$tree, SITE_SHORT[sens$site])), collapse = ", "))
+  GROUP_ORDER <- c("Fig noted", "No fig noted", "fig minus no fig")
+  summary_tbl <- bind_rows(fig_summary(long),
+                           if (nrow(sens) > 0) fig_summary(long %>% filter(!paste(tree, site) %in% EXCLUDE_SENSITIVITY), sens_suffix)) %>%
+    arrange(method, factor(group, c(GROUP_ORDER, paste0(GROUP_ORDER, sens_suffix))))
   write.csv(summary_tbl, file.path(outdir, sprintf("fig_notes_%s_summary.csv", PAINT_SOURCE)), row.names = FALSE)
   cat("\n-- Part 1, per method and group (mm and %) --\n")
   show(summary_tbl)

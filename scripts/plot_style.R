@@ -72,6 +72,30 @@ relabel_method <- function(x) {
   factor(out, levels = METHOD_ORDER)
 }
 
+# ForestScanner's errors are far larger than the cloud methods' and stretch
+# any axis it shares with them, so the cloud methods can't be read (DJ,
+# 2026-10-06). These set the axis by the cloud methods only. A ForestScanner
+# value past the axis is drawn at the edge (pin_to), and its real value is
+# printed on the bar or listed in the caption, so nothing is hidden.
+#   axis_lim(x, pad, include)  range of x (the cloud-method values), padded by
+#                              pad x its span, always taking in `include`
+#   pin_to(x, lim)             x moved onto the nearest edge of lim
+#   off_axis(x, lim)           TRUE where x is past lim
+#   fs_off_caption(...)        caption line listing the ForestScanner values past lim
+axis_lim <- function(x, pad = 0.06, include = NULL) {
+  r <- range(c(x, include), na.rm = TRUE)
+  r + c(-1, 1) * pad * diff(r)
+}
+pin_to   <- function(x, lim) pmin(pmax(x, lim[1]), lim[2])
+off_axis <- function(x, lim) !is.na(x) & (x < lim[1] | x > lim[2])
+fs_off_caption <- function(id, value, lim, fmt = "%.0f", what = "values", width = 95) {
+  off <- off_axis(value, lim)
+  if (!any(off)) return(NULL)
+  items <- paste(sprintf(paste0("%s ", fmt), id[off], value[off]), collapse = ", ")
+  paste(strwrap(sprintf("The axis is set by the cloud methods. ForestScanner %s past it are drawn at the edge: %s.",
+                        what, items), width = width), collapse = "\n")
+}
+
 scale_colour_method <- function(...) scale_colour_manual(values = METHOD_COLORS, breaks = METHOD_ORDER, name = "Method", ...)
 scale_fill_method   <- function(...) scale_fill_manual(values = METHOD_COLORS, breaks = METHOD_ORDER, name = "Method", ...)
 scale_shape_method  <- function(...) scale_shape_manual(values = METHOD_SHAPES, breaks = METHOD_ORDER, name = "Method", ...)

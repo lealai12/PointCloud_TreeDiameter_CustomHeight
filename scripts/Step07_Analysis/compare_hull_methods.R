@@ -96,7 +96,7 @@ sheet   <- Sys.getenv("DAB_SHEET",
 outdir  <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
-EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
+EXCLUDE_SENSITIVITY <- c("3853 ForestGeoPaint")   # tree + site pairs for an extra "excl." sensitivity row and average bar, empty = none. 3853's red field value (967 mm) is probably a bad measurement, not a typo: every method and the blue value read about 1330 (DJ, 2026-10-06)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: on these trees the paint site (either source) is DBH, not DAB (DJ, 2026-09-28)
 EXCLUDE_SITES       <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
@@ -126,8 +126,13 @@ site_group  <- function(site, tree) case_when(site == "Dendrometer" ~ GROUPS[1],
 FIELD_COL  <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
                        c("Dendrometer", PAINT_SOURCE))
 SITE_SHORT <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
-HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
-EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
+
+# the EXCLUDE_SENSITIVITY tree + site pairs, and the label of their sensitivity row
+sens_drop  <- function(tree, site) paste(tree, site) %in% EXCLUDE_SENSITIVITY
+sens_label <- function(tree, site) {
+  hit <- sens_drop(tree, site)
+  sprintf("excl. %s", paste(unique(sprintf("%s %s", tree[hit], SITE_SHORT[site[hit]])), collapse = ", "))
+}
 
 num   <- function(x) suppressWarnings(as.numeric(x))
 
@@ -178,6 +183,9 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   # GROUPS: by measurement type, not a diameter threshold. See
   # validate_field_accuracy.R's header for why.
   mutate(size = site_group(site, tree))
+# a sensitivity row only when a listed pair is in this run
+HAS_SENS   <- any(sens_drop(acc$tree, acc$site))
+EXCL_LABEL <- sens_label(acc$tree, acc$site)
 
 # Python vs R cross-check (console only -- not written anywhere): confirms
 # the two independent implementations still agree before we drop R from the
@@ -250,7 +258,7 @@ if (nrow(long) == 0) {
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
-    if (HAS_SENS) summ(long %>% filter(!tree %in% EXCLUDE_SENSITIVITY), EXCL_LABEL),
+    if (HAS_SENS) summ(long %>% filter(!sens_drop(tree, site)), EXCL_LABEL),
     summ(long %>% filter(!flag_drop), "excl. flagged rings"),
     if (n_distinct(long$size) > 1) by_size else NULL
   )
@@ -278,9 +286,11 @@ if (nrow(long) == 0) {
 
   # ---- FIG 2a: estimate vs. reading, four arms (ForestScanner + all three
   # hull methods) -- revises the previous 3-arm hull-only scatter in place.
-  lim <- range(c(long_with_fs$est, long_with_fs$reading), na.rm = TRUE)
-  fig2a_data <- long_with_fs %>% mutate(method_label = relabel_method(method))
-  p_fig2a <- ggplot(fig2a_data, aes(reading, est, colour = method_label, shape = method_label)) +
+  # axis set by the cloud methods, ForestScanner past it drawn at the edge (plot_style.R)
+  lim <- axis_lim(c(long$est, long_with_fs$reading), pad = 0.03)
+  fig2a_data <- long_with_fs %>% mutate(method_label = relabel_method(method), est_plot = pin_to(est, lim))
+  fs_cap <- fs_off_caption(fs_long$tree_label, fs_long$est, lim, "%.0f mm", "estimates", width = 85)
+  p_fig2a <- ggplot(fig2a_data, aes(reading, est_plot, colour = method_label, shape = method_label)) +
     geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
     geom_point(size = 3, alpha = 0.85) +
     scale_colour_method() + scale_shape_method() +
@@ -288,17 +298,18 @@ if (nrow(long) == 0) {
     labs(title = "Estimated Diameter vs. Field Reading",
          subtitle = sprintf("Dendrometer bands and %s -- dashed = 1:1", SRC_LABEL),
          x = "Field reading (mm)", y = "Estimated diameter (mm)",
-         caption = "Binned hull, fixed angle and Binned hull, mean-distance radius overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.") +
+         caption = paste(c("Binned hull, fixed angle and Binned hull, mean-distance radius overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.",
+                           fs_cap), collapse = "\n")) +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, out_name("hull_comparison_vs_field_reading_scatter.png")), p_fig2a, width = 7.5, height = 6.8, dpi = 130)
 
   # ---- FIG 2b: Bland-Altman, the three hull arms only (no ForestScanner --
   # this figure is about agreement between the hull methods and the field
   # reading, not another vs.-reading scatter). Bias/limits of agreement
-  # computed without the EXCLUDE_SENSITIVITY trees (every tree when it is empty), for Convex hull and Binned
+  # computed without the EXCLUDE_SENSITIVITY tree + site pairs (every site when none is in this run), for Convex hull and Binned
   # hull 2deg only (the two arms with the biggest spread difference).
   ba_stats <- function(m) {
-    d <- long %>% filter(method == m, !tree %in% EXCLUDE_SENSITIVITY)
+    d <- long %>% filter(method == m, !sens_drop(tree, site))
     b <- mean(d$err); s <- sd(d$err)
     list(bias = b, lo = b - 1.96 * s, hi = b + 1.96 * s)
   }
@@ -315,7 +326,7 @@ if (nrow(long) == 0) {
     geom_hline(yintercept = stat_med2$bias, colour = col_med2, linetype = 2) +
     geom_hline(yintercept = c(stat_med2$lo, stat_med2$hi), colour = col_med2, linetype = 3) +
     geom_point(size = 3, alpha = 0.85) +
-    geom_text(data = ba_data %>% filter(tree %in% EXCLUDE_SENSITIVITY, method == "true_hull"),
+    geom_text(data = ba_data %>% filter(sens_drop(tree, site), method == "true_hull"),
               aes(label = tree), colour = "black", size = 3, vjust = -1, hjust = -0.15,
               show.legend = FALSE) +
     scale_colour_method() + scale_shape_method() +
@@ -345,26 +356,37 @@ if (nrow(long) == 0) {
   # field_accuracy_*_error.png for a different colour scheme.
   avg_pct        <- long_with_fs %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>% mutate(tree_label = "Average")
-  avg_pct_excl   <- long_with_fs %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
+  avg_pct_excl   <- long_with_fs %>% filter(!sens_drop(tree, site)) %>% group_by(method) %>%
     summarise(pct = mean(pct), .groups = "drop") %>% mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   p3_data <- bind_rows(long_with_fs %>% select(tree_label, method, pct),
                        avg_pct, if (HAS_SENS) avg_pct_excl) %>%
     mutate(method_label = relabel_method(method),
            tree_label    = factor(tree_label, levels = level_order))
+  # axis set by the cloud methods. A ForestScanner bar past it is cut at the
+  # edge and labelled with its full value (plot_style.R).
+  bar_lim <- axis_lim(p3_data$pct[p3_data$method != "ForestScanner"], pad = 0.1, include = 0)
+  p3_data <- p3_data %>%
+    mutate(pct_plot  = pin_to(pct, bar_lim),
+           off_label = if_else(off_axis(pct, bar_lim), sprintf("%.0f%%", pct), ""),
+           off_vjust = if_else(pct < 0, 1.3, -0.4))
 
   # the discrete scale is declared before the dashed rule: a numeric
   # xintercept as the first x layer makes ggplot2 < 3.5 train a continuous
   # x scale, which then rejects the tree labels
-  p_fig3 <- ggplot(p3_data, aes(tree_label, pct, fill = method_label)) +
+  p_fig3 <- ggplot(p3_data, aes(tree_label, pct_plot, fill = method_label)) +
     scale_x_discrete() +
     geom_vline(xintercept = boundary_avg,  linetype = "dashed", colour = "grey70") +
     geom_col(position = position_dodge(0.8), width = 0.7) +
+    geom_text(aes(label = off_label, vjust = off_vjust), position = position_dodge(0.8),
+              size = 2.6, colour = "grey20") +
     geom_hline(yintercept = 0, colour = "grey40") +
-    scale_y_continuous(expand = expansion(mult = c(0.05, 0.12))) +
+    scale_y_continuous(expand = expansion(mult = c(0.08, 0.12))) +
     scale_fill_method() +
     labs(title = "Signed Percent Error vs. Field Reading",
          subtitle = "trees ordered by reading; dashed rule marks the summary block (see hull_comparison_..._summary.csv for the DBH-vs-DAB breakdown)",
-         x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]") +
+         x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]",
+         caption = if (any(p3_data$off_label != ""))
+           "The axis is set by the cloud methods. A ForestScanner bar past it is cut at the edge and labelled with its full value.") +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   ggsave(file.path(plotdir, out_name("hull_comparison_vs_field_reading_error.png")), p_fig3, width = 9.5, height = 5.5, dpi = 130)
@@ -379,7 +401,7 @@ if (nrow(long) == 0) {
   # and would stretch the axis, so they go in the caption instead (DJ, 2026-09-28).
   avg_err        <- long %>% group_by(method) %>%
     summarise(err = mean(err), .groups = "drop") %>% mutate(tree_label = "Average")
-  avg_err_excl   <- long %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
+  avg_err_excl   <- long %>% filter(!sens_drop(tree, site)) %>% group_by(method) %>%
     summarise(err = mean(err), .groups = "drop") %>% mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   fs_caption <- if (nrow(fs_long) > 0)
     sprintf("ForestScanner (in-app) is left out of this figure. Its errors run from %.0f to %.0f mm (mean %.0f mm, n = %d tree-sites),\nsee field_accuracy_%s_pertree.csv for each value.",
