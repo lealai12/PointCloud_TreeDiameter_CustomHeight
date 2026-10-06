@@ -2,26 +2,26 @@
 # validate_field_accuracy.R  --  FIELD ACCURACY VALIDATION
 # ---------------------------------------------------------------------------
 # Feasibility study, core accuracy comparison. At each site with a field
-# reading (the Dendrometer and PaintMarker sites), compare four diameter
+# reading (the Dendrometer bands and one paint-mark source), compare four diameter
 # estimates
 #   - ForestScanner  (iPhone app, <Site>_ForestScanner_Diameter_mm)
 #   - Python hull    (dendro_tape.py convex-hull equiv diameter)
 #   - R functional   (dab_itsme_concave_hull.R ITSMe concave-hull diameter)
 #   - Circle fit     (circle_fit.py least-squares circle on the polished slice)
 # against the field reading (Dendrometer_FieldDiameter or
-# PaintMarker_FieldDiameter_mm, mm). Rows are keyed by tree + site, since a
-# tree can have a reading at both sites.
+# <source>_FieldDiameter_mm, mm). Rows are keyed by tree + site, since a
+# tree can have a reading at more than one site.
 #
-# Run in TWO scopes:
-#   dendrometer_only  -> the Dendrometer site only.
-#   all_sites         -> the Dendrometer and PaintMarker sites together.
+# Run once per paint source (first argument, see CONFIG), in TWO scopes:
+#   dendrometer_only  -> the Dendrometer bands only (the same in both runs).
+#   <source>          -> the bands and that source's paint marks together.
 #
-# SIZE GROUPING: by measurement type, not a diameter threshold. "DBH" is the
-# Dendrometer site (a band with no buttress problem) plus the PaintMarker site
-# on the PAINT_DBH_TREES (CONFIG), whose paint mark sits at breast height below
-# any buttress. "DAB (above buttress)" is every other PaintMarker site, a
-# buttressed trunk measured above the buttress. Group by the reason the tree
-# is hard to measure, not a size proxy for it.
+# GROUPS: by measurement type, not a diameter threshold. "Band (dendrometer)"
+# is the Dendrometer site. "DBH (low paint mark)" is the paint site on the
+# PAINT_DBH_TREES (CONFIG), whose mark sits at breast height below any buttress.
+# "DAB (above buttress)" is every other paint site, a buttressed trunk measured
+# above the buttress. Group by the reason the tree is hard to measure, not a
+# size proxy for it.
 #   - Tree + site pairs in EXCLUDE_SITES (CONFIG) are left out of everything.
 #
 # Notes:
@@ -33,13 +33,14 @@
 #     ForestScanner doesn't use the ring, so it is never dropped by the flag.
 #   - No row is dropped for having a large error. Every tree + site counts.
 #
-# Outputs (results/, or DAB_RESULTS), per scope <s> in {dendrometer_only, all_sites}:
+# Outputs (results/, or DAB_RESULTS), per scope <s> in {dendrometer_only, ForestGeoPaint, DendroPaint}:
 #   field_accuracy_<s>_pertree.csv    one row per tree + site, all methods + signed % error
 #   field_accuracy_<s>_summary.csv    per-method metrics
 #   plots/field_accuracy_<s>_scatter.png   estimate vs reading, 1:1 line
 #   plots/field_accuracy_<s>_error.png     signed % error per tree
 #
-# Run:  Rscript scripts/Step07_Analysis/validate_field_accuracy.R
+# Run:  Rscript scripts/Step07_Analysis/validate_field_accuracy.R ForestGeoPaint
+#       Rscript scripts/Step07_Analysis/validate_field_accuracy.R DendroPaint
 # ---------------------------------------------------------------------------
 
 suppressMessages({
@@ -73,12 +74,34 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
-PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
-EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
+PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: on these trees the paint site (either source) is DBH, not DAB (DJ, 2026-09-28)
+EXCLUDE_SITES       <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
 
-# field reading column for each site with ground truth, and its short label
-FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
-SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+# Paint-mark source for this run, given as the first argument (DJ, 2026-10-06):
+#   ForestGeoPaint = the red ForestGEO census mark, DendroPaint = the blue
+#   dendrometer-program mark. Each has its own field diameter and date, and the
+#   source goes into every output file name. The validation sites are the
+#   Dendrometer bands plus this source's paint marks. The old PaintMarker site is
+#   not used: its values are split by source into these two sites, so keeping it
+#   would count the same marks twice, and on the red-only trees its field value
+#   came from the blue program.
+PAINT_SOURCES <- c(ForestGeoPaint = "red ForestGEO paint marks", DendroPaint = "blue dendrometer-program paint marks")
+PAINT_SOURCE  <- commandArgs(trailingOnly = TRUE)[1]
+if (is.na(PAINT_SOURCE) || !PAINT_SOURCE %in% names(PAINT_SOURCES))
+  stop("Give the paint source as the first argument: ", paste(names(PAINT_SOURCES), collapse = " or "))
+SRC_LABEL <- PAINT_SOURCES[[PAINT_SOURCE]]
+
+# three groups, by why the site is hard to measure, not by size
+GROUPS      <- c("Band (dendrometer)", "DBH (low paint mark)", "DAB (above buttress)")
+GROUP_FILLS <- setNames(c("#999999", "#56B4E9", "#D55E00"), GROUPS)
+site_group  <- function(site, tree) case_when(site == "Dendrometer" ~ GROUPS[1],
+                                              tree %in% PAINT_DBH_TREES ~ GROUPS[2],
+                                              TRUE ~ GROUPS[3])
+
+# field reading column for each validation site, and its short label
+FIELD_COL  <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
+                       c("Dendrometer", PAINT_SOURCE))
+SITE_SHORT <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
 HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
 EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
@@ -91,7 +114,7 @@ raw <- read_excel(sheet) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
-# every cloud-vs-reading pair, one row per tree + site (the "all_sites" scope)
+# every cloud-vs-reading pair, one row per tree + site (the per-source scope)
 acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) {
   raw %>%
     transmute(
@@ -107,7 +130,7 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) {
 })) %>%
   filter(!is.na(reading), !is.na(Python)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
-  mutate(size         = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"),
+  mutate(size         = site_group(site, tree),
          ring_flagged = !is.na(max_edge) & max_edge >= FLAG_THRESHOLD)
 
 # ---------------------------------------------------------------------------
@@ -146,13 +169,17 @@ run_scope <- function(acc, scope, title) {
                 RMSE = sqrt(mean(err^2)), MAPE = mean(abs(pct)),
                 .groups = "drop") %>% relocate(set)
   }
-  by_size <- long %>% group_by(size, method) %>%
-    summarise(n = n(),
-              bias = mean(err), MAE = mean(abs(err)),
-              RMSE = sqrt(mean(err^2)), MAPE = mean(abs(pct)),
-              .groups = "drop") %>%
-    mutate(set = paste0("by size: ", size)) %>%
-    relocate(set) %>% select(-size)
+  by_group <- function(df, prefix) {
+    df %>% group_by(size, method) %>%
+      summarise(n = n(),
+                bias = mean(err), MAE = mean(abs(err)),
+                RMSE = sqrt(mean(err^2)), MAPE = mean(abs(pct)),
+                .groups = "drop") %>%
+      mutate(set = paste0(prefix, size)) %>%
+      relocate(set) %>% select(-size)
+  }
+  by_size <- bind_rows(by_group(long, "by group: "),
+                       by_group(long %>% filter(!flag_drop), "by group, excl. flagged rings: "))
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
@@ -225,14 +252,13 @@ run_scope <- function(acc, scope, title) {
   invisible(summary_tbl)
 }
 
-# the Dendrometer site only
+# the Dendrometer bands only (the same whichever source is run)
 r1 <- run_scope(acc_all %>% filter(site == "Dendrometer"),
-                "dendrometer_only", "Dendrometer Site Only")
+                "dendrometer_only", "Dendrometer Bands Only")
 
-# every site with a field reading (Dendrometer + PaintMarker)
-r2 <- run_scope(acc_all,
-                "all_sites", "All Validated Sites")
+# the bands and this source's paint marks
+r2 <- run_scope(acc_all, PAINT_SOURCE, sprintf("Dendrometer Bands and %s", SRC_LABEL))
 
 if (!is.null(r1) || !is.null(r2))
-  cat(sprintf("\nWrote %s/field_accuracy_{dendrometer_only,all_sites}_{pertree,summary}.csv and %s/field_accuracy_*_{scatter,error}.png\n",
-              outdir, plotdir))
+  cat(sprintf("\nWrote %s/field_accuracy_{dendrometer_only,%s}_{pertree,summary}.csv and %s/field_accuracy_*_{scatter,error}.png\n",
+              outdir, PAINT_SOURCE, plotdir))

@@ -1,0 +1,10 @@
+"source","comparison","n_pairs","n_trees","median_years","mean_abs_mm","median_abs_mm","p90_abs_mm","max_abs_mm","mean_abs_pct","median_abs_pct","n_decreases","n_ge_30mm","n_ge_50mm","n_ge_100mm"
+"census record","A. Same visit",68,11,0,19.9117647058824,13,36.7,94,2.33072278781571,1.62354511083105,20,10,6,0
+"census record","B. Consecutive new",87,14,0.572210814510609,11.0689655172414,8,26.4,44,1.08665740714908,0.698757763975155,26,5,0,0
+"census record","C. Consecutive reference",69,20,2.99247091033539,38.6811594202899,29,92.2,199,3.10358470418647,1.82128628343768,22,33,19,7
+"scan vs field reading","ForestScanner (in-app)",10,10,NA,294.32954665,77.0890582,578.43,1464.3,20.2531986494506,7.86903267393654,10,7,5,5
+"scan vs field reading","Convex hull",17,11,NA,74.8237960882353,46,158.6,289,7.0768798090252,7.27640402439633,0,13,8,4
+"scan vs field reading","Binned hull, fixed angle",17,11,NA,49.0002560294118,29,120,206,4.66683684146793,4.68774475993409,2,7,5,3
+"scan vs field reading","Binned hull, mean-distance radius",17,11,NA,50.0002560294118,29,122,208,4.71680816714379,4.47710543446138,2,8,5,3
+"scan vs field reading","ITSMe concave hull",17,11,NA,44.8767266176471,30.5,113.28,198.4,4.50774299606135,3.22660348983886,3,9,4,3
+"scan vs field reading","Circle fit (least squares)",17,11,NA,29.1611041,23.1781164,50.6,99,3.07205597858741,2.42501595405233,10,8,2,0

@@ -35,8 +35,9 @@
 # changing paths):
 #
 #   Part 1 -- vs_field_reading: reads only the working sheet, same as
-#   validate_field_accuracy.R, at the two sites with a field reading
-#   (Dendrometer and PaintMarker), one row per tree + site. The true-hull and
+#   validate_field_accuracy.R, at the validation sites of one paint source
+#   (the Dendrometer bands and that source's paint marks; first argument, see
+#   CONFIG), one row per tree + site. The true-hull and
 #   binned-hull diameters (Python AND R, for the cross-check) are all columns
 #   in that sheet:
 #     <Site>_DendroTape_pythonScript_Diameter_mm             = Python true hull (dendro_tape.py)
@@ -56,12 +57,13 @@
 #   Part 2 -- method_agreement: true hull vs. binned hull, paired per
 #   tree+site, PER BIN VARIANT (2deg, 10mm), with NO field reading required --
 #   the fuller processed batch (every measured site: TopFlag/LowerFlag/
-#   PaintMarker/Dendrometer), not just the ones with field ground truth.
-#   Working sheet only, same as Part 1. It reads the true-hull and
-#   binned-hull columns for all four sites, nothing else, and both bin
-#   variants cover all four sites.
+#   ForestGeoPaint/DendroPaint/Dendrometer), not just the ones with field
+#   ground truth, and the same whichever source is run. Where a tree's red and
+#   blue marks share one slice (same Y), it is counted once. Working sheet
+#   only, same as Part 1.
 #
-# Run:  Rscript scripts/Step07_Analysis/compare_hull_methods.R
+# Run:  Rscript scripts/Step07_Analysis/compare_hull_methods.R ForestGeoPaint
+#       Rscript scripts/Step07_Analysis/compare_hull_methods.R DendroPaint
 # ---------------------------------------------------------------------------
 
 suppressMessages({
@@ -96,12 +98,34 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
-PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
-EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
+PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: on these trees the paint site (either source) is DBH, not DAB (DJ, 2026-09-28)
+EXCLUDE_SITES       <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
 
-# field reading column for each site with ground truth, and its short label
-FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
-SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+# Paint-mark source for this run, given as the first argument (DJ, 2026-10-06):
+#   ForestGeoPaint = the red ForestGEO census mark, DendroPaint = the blue
+#   dendrometer-program mark. Each has its own field diameter and date, and the
+#   source goes into every output file name. The validation sites are the
+#   Dendrometer bands plus this source's paint marks. The old PaintMarker site is
+#   not used: its values are split by source into these two sites, so keeping it
+#   would count the same marks twice, and on the red-only trees its field value
+#   came from the blue program.
+PAINT_SOURCES <- c(ForestGeoPaint = "red ForestGEO paint marks", DendroPaint = "blue dendrometer-program paint marks")
+PAINT_SOURCE  <- commandArgs(trailingOnly = TRUE)[1]
+if (is.na(PAINT_SOURCE) || !PAINT_SOURCE %in% names(PAINT_SOURCES))
+  stop("Give the paint source as the first argument: ", paste(names(PAINT_SOURCES), collapse = " or "))
+SRC_LABEL <- PAINT_SOURCES[[PAINT_SOURCE]]
+
+# three groups, by why the site is hard to measure, not by size
+GROUPS      <- c("Band (dendrometer)", "DBH (low paint mark)", "DAB (above buttress)")
+GROUP_FILLS <- setNames(c("#999999", "#56B4E9", "#D55E00"), GROUPS)
+site_group  <- function(site, tree) case_when(site == "Dendrometer" ~ GROUPS[1],
+                                              tree %in% PAINT_DBH_TREES ~ GROUPS[2],
+                                              TRUE ~ GROUPS[3])
+
+# field reading column for each validation site, and its short label
+FIELD_COL  <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
+                       c("Dendrometer", PAINT_SOURCE))
+SITE_SHORT <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
 HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
 EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
@@ -110,7 +134,7 @@ num   <- function(x) suppressWarnings(as.numeric(x))
 # ===========================================================================
 # PART 1 -- true hull & binned hull vs. field reading.
 # Working sheet only, same as validate_field_accuracy.R, at the Dendrometer
-# and PaintMarker sites.
+# bands and this run's paint-mark source.
 #
 # Python-only in the OUTPUT (results CSVs/plots): R is still read in here and
 # cross-checked against Python below, but not shown as its own column/bar --
@@ -151,9 +175,9 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   ))) %>%
   filter(!is.na(reading)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
-  # SIZE GROUPING: by site, not a diameter threshold. See
+  # GROUPS: by measurement type, not a diameter threshold. See
   # validate_field_accuracy.R's header for why.
-  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"))
+  mutate(size = site_group(site, tree))
 
 # Python vs R cross-check (console only -- not written anywhere): confirms
 # the two independent implementations still agree before we drop R from the
@@ -197,7 +221,7 @@ long <- acc %>%
 
 if (nrow(long) == 0) {
   cat("\n[Part 1 skipped] no field readings in the sheet yet ",
-      "(Dendrometer_FieldDiameter, PaintMarker_FieldDiameter_mm).\n", sep = "")
+      "(Dendrometer_FieldDiameter, ", FIELD_COL[[PAINT_SOURCE]], ").\n", sep = "")
 } else {
   pertree <- long %>%
     mutate(tag = sprintf("%.0f", pct)) %>%
@@ -205,7 +229,8 @@ if (nrow(long) == 0) {
     pivot_wider(names_from = method, values_from = c(est, tag),
                 names_glue = "{method}_{.value}") %>%
     arrange(size, reading)
-  write.csv(pertree, file.path(outdir, "hull_comparison_vs_field_reading_pertree.csv"), row.names = FALSE)
+  out_name <- function(stem) sub("^hull_comparison_", sprintf("hull_comparison_%s_", PAINT_SOURCE), stem)
+  write.csv(pertree, file.path(outdir, out_name("hull_comparison_vs_field_reading_pertree.csv")), row.names = FALSE)
 
   summ <- function(df, label) {
     df %>% group_by(method) %>%
@@ -214,10 +239,14 @@ if (nrow(long) == 0) {
                 RMSE = sqrt(mean(err^2)), MAPE = mean(abs(pct)),
                 .groups = "drop") %>% relocate(set)
   }
-  by_size <- long %>% group_by(size, method) %>%
-    summarise(n = n(), bias = mean(err), MAE = mean(abs(err)),
-              RMSE = sqrt(mean(err^2)), MAPE = mean(abs(pct)), .groups = "drop") %>%
-    mutate(set = paste0("by size: ", size)) %>% relocate(set) %>% select(-size)
+  by_group <- function(df, prefix) {
+    df %>% group_by(size, method) %>%
+      summarise(n = n(), bias = mean(err), MAE = mean(abs(err)),
+                RMSE = sqrt(mean(err^2)), MAPE = mean(abs(pct)), .groups = "drop") %>%
+      mutate(set = paste0(prefix, size)) %>% relocate(set) %>% select(-size)
+  }
+  by_size <- bind_rows(by_group(long, "by group: "),
+                       by_group(long %>% filter(!flag_drop), "by group, excl. flagged rings: "))
 
   summary_tbl <- bind_rows(
     summ(long, "all trees"),
@@ -225,9 +254,9 @@ if (nrow(long) == 0) {
     summ(long %>% filter(!flag_drop), "excl. flagged rings"),
     if (n_distinct(long$size) > 1) by_size else NULL
   )
-  write.csv(summary_tbl, file.path(outdir, "hull_comparison_vs_field_reading_summary.csv"), row.names = FALSE)
+  write.csv(summary_tbl, file.path(outdir, out_name("hull_comparison_vs_field_reading_summary.csv")), row.names = FALSE)
 
-  cat("\n============ HULL METHOD COMPARISON -- VS. FIELD READING ============\n")
+  cat(sprintf("\n============ HULL METHOD COMPARISON -- VS. FIELD READING (%s) ============\n", PAINT_SOURCE))
   cat("signed % error per method:\n\n")
   print(as.data.frame(pertree), row.names = FALSE)
   cat("\n-- per-method metrics (mm; +bias = over-read) --\n")
@@ -257,11 +286,11 @@ if (nrow(long) == 0) {
     scale_colour_method() + scale_shape_method() +
     coord_equal(xlim = lim, ylim = lim) +
     labs(title = "Estimated Diameter vs. Field Reading",
-         subtitle = "dashed = 1:1",
+         subtitle = sprintf("Dendrometer bands and %s -- dashed = 1:1", SRC_LABEL),
          x = "Field reading (mm)", y = "Estimated diameter (mm)",
          caption = "Binned hull, fixed angle and Binned hull, mean-distance radius overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.") +
     theme_minimal(base_size = 12)
-  ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_scatter.png"), p_fig2a, width = 7.5, height = 6.8, dpi = 130)
+  ggsave(file.path(plotdir, out_name("hull_comparison_vs_field_reading_scatter.png")), p_fig2a, width = 7.5, height = 6.8, dpi = 130)
 
   # ---- FIG 2b: Bland-Altman, the three hull arms only (no ForestScanner --
   # this figure is about agreement between the hull methods and the field
@@ -295,7 +324,7 @@ if (nrow(long) == 0) {
                            if (HAS_SENS) paste0("; ", EXCL_LABEL), ")"),
          x = "Mean of estimate and reading (mm)", y = "Estimate − reading (mm)") +
     theme_minimal(base_size = 12)
-  ggsave(file.path(plotdir, "hull_comparison_bland_altman.png"), p_fig2b, width = 8, height = 6, dpi = 130)
+  ggsave(file.path(plotdir, out_name("hull_comparison_bland_altman.png")), p_fig2b, width = 8, height = 6, dpi = 130)
 
   # ---- shared tree order + summary boundary marker for FIG 3 / FIG 3b
   # No "size boundary" rule here (an earlier version drew one at a diameter
@@ -338,7 +367,7 @@ if (nrow(long) == 0) {
          x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]") +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_error.png"), p_fig3, width = 9.5, height = 5.5, dpi = 130)
+  ggsave(file.path(plotdir, out_name("hull_comparison_vs_field_reading_error.png")), p_fig3, width = 9.5, height = 5.5, dpi = 130)
 
   # ---- FIG 3b: same data, absolute error in mm. POINTS instead of bars on
   # the pseudo-log axis -- a bar's LENGTH is read as magnitude, so on a log
@@ -353,8 +382,8 @@ if (nrow(long) == 0) {
   avg_err_excl   <- long %>% filter(!tree %in% EXCLUDE_SENSITIVITY) %>% group_by(method) %>%
     summarise(err = mean(err), .groups = "drop") %>% mutate(tree_label = sprintf("Average (%s)", EXCL_LABEL))
   fs_caption <- if (nrow(fs_long) > 0)
-    sprintf("ForestScanner (in-app) is left out of this figure. Its errors run from %.0f to %.0f mm (mean %.0f mm, n = %d tree-sites),\nsee field_accuracy_all_sites_pertree.csv for each value.",
-            min(fs_long$err), max(fs_long$err), mean(fs_long$err), nrow(fs_long)) else NULL
+    sprintf("ForestScanner (in-app) is left out of this figure. Its errors run from %.0f to %.0f mm (mean %.0f mm, n = %d tree-sites),\nsee field_accuracy_%s_pertree.csv for each value.",
+            min(fs_long$err), max(fs_long$err), mean(fs_long$err), nrow(fs_long), PAINT_SOURCE) else NULL
   p3b_data <- bind_rows(long %>% select(tree_label, method, err),
                         avg_err, if (HAS_SENS) avg_err_excl) %>%
     mutate(method_label = relabel_method(method),
@@ -374,7 +403,7 @@ if (nrow(long) == 0) {
          caption = fs_caption) +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  ggsave(file.path(plotdir, "hull_comparison_vs_field_reading_error_mm.png"), p_fig3b, width = 9.5, height = 5.5, dpi = 130)
+  ggsave(file.path(plotdir, out_name("hull_comparison_vs_field_reading_error_mm.png")), p_fig3b, width = 9.5, height = 5.5, dpi = 130)
 
   # ---- FIG Q3: bin-width agreement -- the two binned-hull variants overlap
   # almost exactly in FIG 2a (a legend entry with no visible points reads
@@ -391,10 +420,10 @@ if (nrow(long) == 0) {
          subtitle = "(2° estimate − 10mm estimate) per tree -- the two bin widths are\nindistinguishable at the scale of the measurement",
          x = "Field reading (mm)", y = "2° estimate − 10mm estimate (mm)") +
     theme_minimal(base_size = 12)
-  ggsave(file.path(plotdir, "hull_comparison_binwidth_agreement.png"), p_q3, width = 7.5, height = 5.2, dpi = 130)
+  ggsave(file.path(plotdir, out_name("hull_comparison_binwidth_agreement.png")), p_q3, width = 7.5, height = 5.2, dpi = 130)
 
-  cat(sprintf("\nWrote %s/hull_comparison_vs_field_reading_{pertree,summary}.csv and %s/hull_comparison_{vs_field_reading_{scatter,error,error_mm},bland_altman,binwidth_agreement}.png\n",
-              outdir, plotdir))
+  cat(sprintf("\nWrote %s/hull_comparison_%s_vs_field_reading_{pertree,summary}.csv and %s/hull_comparison_%s_{vs_field_reading_{scatter,error,error_mm},bland_altman,binwidth_agreement}.png\n",
+              outdir, PAINT_SOURCE, plotdir, PAINT_SOURCE))
 }
 
 # ===========================================================================
@@ -417,11 +446,18 @@ site_pair <- function(site, stem) {
       bin_edge  = num(.data[[sprintf("%s_%s_MaxEdgeFrac", site, stem)]])
     )
 }
-ALL_SITES <- c("TopFlag", "LowerFlag", "PaintMarker", "Dendrometer")
+ALL_SITES <- c("TopFlag", "LowerFlag", "ForestGeoPaint", "DendroPaint", "Dendrometer")
+# Trees whose red and blue marks are at the same Y share one polished slice, so
+# their DendroPaint row repeats the ForestGeoPaint row. Count that slice once.
+# (The Y headers are named this way in the sheet, DJ 2026-10-06.)
+y_red  <- num(raw[["Y_value_ForestGeoPaint (Red)"]])
+y_blue <- num(raw[["Y_value_DendroPaint (Blue)"]])
+SHARED_SLICE_TREES <- raw$Tree_Tag[!is.na(y_red) & !is.na(y_blue) & y_red == y_blue]
+drop_shared <- function(df) df %>% filter(!(site == "DendroPaint" & tree %in% SHARED_SLICE_TREES))
 pairs_2deg <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinFixedAngle")) %>%
-  filter(!is.na(true_py), !is.na(med_py))
+  filter(!is.na(true_py), !is.na(med_py)) %>% drop_shared()
 pairs_10mm <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinMeanDistanceRadius")) %>%
-  filter(!is.na(true_py), !is.na(med_py))
+  filter(!is.na(true_py), !is.na(med_py)) %>% drop_shared()
 
 # Python vs R cross-check (console only -- not written anywhere): confirms
 # the two independent implementations still agree before we drop R from the
@@ -444,8 +480,8 @@ itsme_pairs <- bind_rows(lapply(ALL_SITES, function(site) {
   py_col <- sprintf("%s_DabItsme_ConcaveHull_pythonScript_Diameter_mm", site)
   r_col  <- sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", site)
   if (!all(c(py_col, r_col) %in% names(raw))) return(NULL)
-  data.frame(itsme_py = num(raw[[py_col]]), itsme_r = num(raw[[r_col]]))
-}))
+  data.frame(tree = raw$Tree_Tag, site = site, itsme_py = num(raw[[py_col]]), itsme_r = num(raw[[r_col]]))
+})) %>% drop_shared()
 if (nrow(itsme_pairs) > 0) pair_check(itsme_pairs, "itsme_py", "itsme_r", "itsme_concave")
 
 # the circle fit, Python (circle_fit.py) against R (circle_fit.R), all sites
@@ -453,8 +489,8 @@ circle_pairs <- bind_rows(lapply(ALL_SITES, function(site) {
   py_col <- sprintf("%s_CircleFit_pythonScript_Diameter_mm", site)
   r_col  <- sprintf("%s_CircleFit_RScript_Diameter_mm", site)
   if (!all(c(py_col, r_col) %in% names(raw))) return(NULL)
-  data.frame(circle_py = num(raw[[py_col]]), circle_r = num(raw[[r_col]]))
-}))
+  data.frame(tree = raw$Tree_Tag, site = site, circle_py = num(raw[[py_col]]), circle_r = num(raw[[r_col]]))
+})) %>% drop_shared()
 if (nrow(circle_pairs) > 0) pair_check(circle_pairs, "circle_py", "circle_r", "circle_fit")
 
 to_agreement <- function(df, variant) {

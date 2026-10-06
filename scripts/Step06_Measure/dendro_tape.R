@@ -294,6 +294,7 @@ if (from_sheet) {
   }
   rows <- list()
   updates <- list()
+  flag_updates <- list()
   for (m in manifest) {
     h <- if (is.null(HEIGHT_COL)) NA_real_ else m$height
     result <- tryCatch(

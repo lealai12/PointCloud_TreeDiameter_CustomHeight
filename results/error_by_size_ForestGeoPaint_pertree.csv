@@ -1,0 +1,82 @@
+"tree","site","size","reading","method","est","err","pct"
+"2683","Dendrometer","Band (dendrometer)",454.1354475,"ForestScanner (in-app)",423,-31.1354475,-6.8559826526204
+"2683","Dendrometer","Band (dendrometer)",454.1354475,"Convex hull",469,14.8645525,3.27315398562892
+"2683","Dendrometer","Band (dendrometer)",454.1354475,"ITSMe concave hull",457,2.8645525,0.630770514781276
+"2683","Dendrometer","Band (dendrometer)",454.1354475,"Binned hull, fixed angle",459,4.8645525,1.07116775992255
+"2683","Dendrometer","Band (dendrometer)",454.1354475,"Binned hull, mean-distance radius",457,2.8645525,0.630770514781276
+"2683","Dendrometer","Band (dendrometer)",454.1354475,"Circle fit (least squares)",432,-22.1354475,-4.87419504948466
+"3031","Dendrometer","Band (dendrometer)",749.9999095,"ForestScanner (in-app)",724,-25.9999094999999,-3.4666550183097
+"3031","Dendrometer","Band (dendrometer)",749.9999095,"Convex hull",754,4.00009050000006,0.533345464357027
+"3031","Dendrometer","Band (dendrometer)",749.9999095,"ITSMe concave hull",745.9,-4.09990949999997,-0.546654665962992
+"3031","Dendrometer","Band (dendrometer)",749.9999095,"Binned hull, fixed angle",741,-8.99990949999994,-1.19998807813189
+"3031","Dendrometer","Band (dendrometer)",749.9999095,"Binned hull, mean-distance radius",741,-8.99990949999994,-1.19998807813189
+"3031","Dendrometer","Band (dendrometer)",749.9999095,"Circle fit (least squares)",711,-38.9999094999999,-5.19998856079861
+"3853","Dendrometer","Band (dendrometer)",1329.308486,"ForestScanner (in-app)",972,-357.308486,-26.8792751842855
+"3853","Dendrometer","Band (dendrometer)",1329.308486,"Convex hull",1403,73.6915140000001,5.54359765066603
+"3853","Dendrometer","Band (dendrometer)",1329.308486,"ITSMe concave hull",1372.2,42.8915140000001,3.22660348983886
+"3853","Dendrometer","Band (dendrometer)",1329.308486,"Binned hull, fixed angle",1353,23.6915140000001,1.78224349347907
+"3853","Dendrometer","Band (dendrometer)",1329.308486,"Binned hull, mean-distance radius",1356,26.6915140000001,2.00792474291028
+"3853","Dendrometer","Band (dendrometer)",1329.308486,"Circle fit (least squares)",1299,-30.3084859999999,-2.28001899628285
+"180910","Dendrometer","Band (dendrometer)",458.6283484,"ForestScanner (in-app)",452,-6.62834839999999,-1.44525483937573
+"180910","Dendrometer","Band (dendrometer)",458.6283484,"Convex hull",492,33.3716516,7.27640402439633
+"180910","Dendrometer","Band (dendrometer)",458.6283484,"ITSMe concave hull",486.6,27.9716516,6.0989800777871
+"180910","Dendrometer","Band (dendrometer)",458.6283484,"Binned hull, fixed angle",482,23.3716516,5.09598930845331
+"180910","Dendrometer","Band (dendrometer)",458.6283484,"Binned hull, mean-distance radius",482,23.3716516,5.09598930845331
+"180910","Dendrometer","Band (dendrometer)",458.6283484,"Circle fit (least squares)",459,0.371651600000007,0.0810354617843782
+"180904","Dendrometer","Band (dendrometer)",474.7451587,"ForestScanner (in-app)",448,-26.7451587,-5.63358218822843
+"180904","Dendrometer","Band (dendrometer)",474.7451587,"Convex hull",518,43.2548413,9.11117059486088
+"180904","Dendrometer","Band (dendrometer)",474.7451587,"ITSMe concave hull",496.6,21.8548413,4.60348902974501
+"180904","Dendrometer","Band (dendrometer)",474.7451587,"Binned hull, fixed angle",497,22.2548413,4.68774475993409
+"180904","Dendrometer","Band (dendrometer)",474.7451587,"Binned hull, mean-distance radius",496,21.2548413,4.47710543446138
+"180904","Dendrometer","Band (dendrometer)",474.7451587,"Circle fit (least squares)",454,-20.7451587,-4.3697462353922
+"5943","Dendrometer","Band (dendrometer)",969.1781164,"ForestScanner (in-app)",931,-38.1781164,-3.93922600541293
+"5943","Dendrometer","Band (dendrometer)",969.1781164,"Convex hull",996,26.8218836,2.76748753878488
+"5943","Dendrometer","Band (dendrometer)",969.1781164,"ITSMe concave hull",981.2,12.0218836,1.24042045487523
+"5943","Dendrometer","Band (dendrometer)",969.1781164,"Binned hull, fixed angle",976,6.82188359999998,0.703883371339396
+"5943","Dendrometer","Band (dendrometer)",969.1781164,"Binned hull, mean-distance radius",976,6.82188359999998,0.703883371339396
+"5943","Dendrometer","Band (dendrometer)",969.1781164,"Circle fit (least squares)",946,-23.1781164,-2.39152287982882
+"4524","ForestGeoPaint","DAB (above buttress)",1058,"Convex hull",1179,121,11.4366729678639
+"4524","ForestGeoPaint","DAB (above buttress)",1058,"ITSMe concave hull",1114.6,56.5999999999999,5.34971644612475
+"4524","ForestGeoPaint","DAB (above buttress)",1058,"Binned hull, fixed angle",1127,69,6.52173913043478
+"4524","ForestGeoPaint","DAB (above buttress)",1058,"Binned hull, mean-distance radius",1128,70,6.61625708884688
+"4524","ForestGeoPaint","DAB (above buttress)",1058,"Circle fit (least squares)",997,-61,-5.765595463138
+"4694","ForestGeoPaint","DAB (above buttress)",1879,"ForestScanner (in-app)",664,-1215,-64.6620542841937
+"4694","ForestGeoPaint","DAB (above buttress)",1879,"Convex hull",1967,88,4.68334220329963
+"4694","ForestGeoPaint","DAB (above buttress)",1879,"ITSMe concave hull",1876.5,-2.5,-0.133049494411921
+"4694","ForestGeoPaint","DAB (above buttress)",1879,"Binned hull, fixed angle",1927,48,2.55455029270889
+"4694","ForestGeoPaint","DAB (above buttress)",1879,"Binned hull, mean-distance radius",1929,50,2.66098988823842
+"4694","ForestGeoPaint","DAB (above buttress)",1879,"Circle fit (least squares)",1814,-65,-3.45928685470995
+"5027","ForestGeoPaint","DAB (above buttress)",1365,"ForestScanner (in-app)",1190,-175,-12.8205128205128
+"5027","ForestGeoPaint","DAB (above buttress)",1365,"Convex hull",1479,114,8.35164835164835
+"5027","ForestGeoPaint","DAB (above buttress)",1365,"ITSMe concave hull",1427.2,62.2,4.55677655677656
+"5027","ForestGeoPaint","DAB (above buttress)",1365,"Binned hull, fixed angle",1429,64,4.68864468864469
+"5027","ForestGeoPaint","DAB (above buttress)",1365,"Binned hull, mean-distance radius",1431,66,4.83516483516483
+"5027","ForestGeoPaint","DAB (above buttress)",1365,"Circle fit (least squares)",1340,-25,-1.83150183150183
+"6647","ForestGeoPaint","DAB (above buttress)",1760,"ForestScanner (in-app)",1350,-410,-23.2954545454545
+"6647","ForestGeoPaint","DAB (above buttress)",1760,"Convex hull",1865,105,5.96590909090909
+"6647","ForestGeoPaint","DAB (above buttress)",1760,"ITSMe concave hull",1790.7,30.7,1.74431818181818
+"6647","ForestGeoPaint","DAB (above buttress)",1760,"Binned hull, fixed angle",1830,70,3.97727272727273
+"6647","ForestGeoPaint","DAB (above buttress)",1760,"Binned hull, mean-distance radius",1832,72,4.09090909090909
+"6647","ForestGeoPaint","DAB (above buttress)",1760,"Circle fit (least squares)",1756,-4,-0.227272727272727
+"7163","ForestGeoPaint","DAB (above buttress)",1752,"ForestScanner (in-app)",1650,-102,-5.82191780821918
+"7163","ForestGeoPaint","DAB (above buttress)",1752,"Convex hull",1976,224,12.7853881278539
+"7163","ForestGeoPaint","DAB (above buttress)",1752,"ITSMe concave hull",1891.2,139.2,7.94520547945206
+"7163","ForestGeoPaint","DAB (above buttress)",1752,"Binned hull, fixed angle",1927,175,9.98858447488584
+"7163","ForestGeoPaint","DAB (above buttress)",1752,"Binned hull, mean-distance radius",1930,178,10.1598173515982
+"7163","ForestGeoPaint","DAB (above buttress)",1752,"Circle fit (least squares)",1769,17,0.970319634703196
+"7772","ForestGeoPaint","DAB (above buttress)",1570,"ForestScanner (in-app)",95.7,-1474.3,-93.9044585987261
+"7772","ForestGeoPaint","DAB (above buttress)",1570,"Convex hull",1622,52,3.31210191082803
+"7772","ForestGeoPaint","DAB (above buttress)",1570,"ITSMe concave hull",1595.4,25.4000000000001,1.61783439490446
+"7772","ForestGeoPaint","DAB (above buttress)",1570,"Binned hull, fixed angle",1600,30,1.91082802547771
+"7772","ForestGeoPaint","DAB (above buttress)",1570,"Binned hull, mean-distance radius",1604,34,2.1656050955414
+"7772","ForestGeoPaint","DAB (above buttress)",1570,"Circle fit (least squares)",1567,-3,-0.191082802547771
+"2683","ForestGeoPaint","DBH (low paint mark)",448,"Convex hull",476,28,6.25
+"2683","ForestGeoPaint","DBH (low paint mark)",448,"ITSMe concave hull",463.5,15.5,3.45982142857143
+"2683","ForestGeoPaint","DBH (low paint mark)",448,"Binned hull, fixed angle",462,14,3.125
+"2683","ForestGeoPaint","DBH (low paint mark)",448,"Binned hull, mean-distance radius",462,14,3.125
+"2683","ForestGeoPaint","DBH (low paint mark)",448,"Circle fit (least squares)",436,-12,-2.67857142857143
+"3853","ForestGeoPaint","DAB (above buttress)",967,"Convex hull",1387,420,43.4332988624612
+"3853","ForestGeoPaint","DAB (above buttress)",967,"ITSMe concave hull",1365.2,398.2,41.1789038262668
+"3853","ForestGeoPaint","DAB (above buttress)",967,"Binned hull, fixed angle",1367,400,41.3650465356774
+"3853","ForestGeoPaint","DAB (above buttress)",967,"Binned hull, mean-distance radius",1369,402,41.5718717683557
+"3853","ForestGeoPaint","DAB (above buttress)",967,"Circle fit (least squares)",1326,359,37.1251292657704

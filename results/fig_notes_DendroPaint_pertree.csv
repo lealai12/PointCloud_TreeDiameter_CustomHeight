@@ -1,0 +1,35 @@
+"tree","site","fig","reading","method","est","err_mm","err_pct","flagged"
+"5027","DendroPaint","Fig noted",1306,"ForestScanner (in-app)",1190,-116,-8.88,FALSE
+"7772","DendroPaint","No fig noted",1560,"ForestScanner (in-app)",95.7,-1464.3,-93.87,FALSE
+"4146","DendroPaint","No fig noted",1567,"ForestScanner (in-app)",1170,-397,-25.34,FALSE
+"6647","DendroPaint","No fig noted",1830,"ForestScanner (in-app)",1350,-480,-26.23,FALSE
+"5027","DendroPaint","Fig noted",1306,"Convex hull",1479,173,13.25,FALSE
+"3853","DendroPaint","Fig noted",1330,"Convex hull",1396,66,4.96,FALSE
+"1993","DendroPaint","Fig noted",2133,"Convex hull",2422,289,13.55,FALSE
+"7772","DendroPaint","No fig noted",1560,"Convex hull",1622,62,3.97,FALSE
+"4146","DendroPaint","No fig noted",1567,"Convex hull",1709,142,9.06,FALSE
+"6647","DendroPaint","No fig noted",1830,"Convex hull",1979,149,8.14,TRUE
+"5027","DendroPaint","Fig noted",1306,"Binned hull, fixed angle",1429,123,9.42,FALSE
+"3853","DendroPaint","Fig noted",1330,"Binned hull, fixed angle",1359,29,2.18,FALSE
+"1993","DendroPaint","Fig noted",2133,"Binned hull, fixed angle",2339,206,9.66,FALSE
+"7772","DendroPaint","No fig noted",1560,"Binned hull, fixed angle",1600,40,2.56,FALSE
+"4146","DendroPaint","No fig noted",1567,"Binned hull, fixed angle",1654,87,5.55,FALSE
+"6647","DendroPaint","No fig noted",1830,"Binned hull, fixed angle",1948,118,6.45,TRUE
+"5027","DendroPaint","Fig noted",1306,"Binned hull, mean-distance radius",1431,125,9.57,FALSE
+"3853","DendroPaint","Fig noted",1330,"Binned hull, mean-distance radius",1361,31,2.33,FALSE
+"1993","DendroPaint","Fig noted",2133,"Binned hull, mean-distance radius",2341,208,9.75,FALSE
+"7772","DendroPaint","No fig noted",1560,"Binned hull, mean-distance radius",1604,44,2.82,FALSE
+"4146","DendroPaint","No fig noted",1567,"Binned hull, mean-distance radius",1657,90,5.74,FALSE
+"6647","DendroPaint","No fig noted",1830,"Binned hull, mean-distance radius",1950,120,6.56,TRUE
+"5027","DendroPaint","Fig noted",1306,"ITSMe concave hull",1427.2,121.2,9.28,FALSE
+"3853","DendroPaint","Fig noted",1330,"ITSMe concave hull",1368.5,38.5,2.89,FALSE
+"1993","DendroPaint","Fig noted",2133,"ITSMe concave hull",2331.4,198.4,9.3,FALSE
+"7772","DendroPaint","No fig noted",1560,"ITSMe concave hull",1595.4,35.4,2.27,FALSE
+"4146","DendroPaint","No fig noted",1567,"ITSMe concave hull",1675,108,6.89,FALSE
+"6647","DendroPaint","No fig noted",1830,"ITSMe concave hull",1823.3,-6.7,-0.37,TRUE
+"5027","DendroPaint","Fig noted",1306,"Circle fit (least squares)",1340,34,2.6,FALSE
+"3853","DendroPaint","Fig noted",1330,"Circle fit (least squares)",1314,-16,-1.2,FALSE
+"1993","DendroPaint","Fig noted",2133,"Circle fit (least squares)",2232,99,4.64,FALSE
+"7772","DendroPaint","No fig noted",1560,"Circle fit (least squares)",1567,7,0.45,FALSE
+"4146","DendroPaint","No fig noted",1567,"Circle fit (least squares)",1605,38,2.43,FALSE
+"6647","DendroPaint","No fig noted",1830,"Circle fit (least squares)",1774,-56,-3.06,TRUE

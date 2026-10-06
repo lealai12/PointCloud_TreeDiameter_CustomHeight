@@ -8,21 +8,23 @@
 # read without the others on top of it. No new measurement, no new metric.
 # The grouped figures are unchanged, this only adds six files.
 #
-# All six methods, at every validated site (Dendrometer and PaintMarker),
-# one row per tree + site. DBH vs DAB and EXCLUDE_SITES follow the other step 7
+# All six methods, at every validation site of one paint source (the
+# Dendrometer bands plus that source's paint marks; first argument, see
+# CONFIG), one row per tree + site. The groups and EXCLUDE_SITES follow the other step 7
 # scripts. Open markers = flagged ring (MaxEdgeFrac >= FLAG_THRESHOLD), each
 # method by its own flag (ITSMe uses DendroTape's, ForestScanner is never
 # flagged). No row is dropped for having a large error.
 #
-# Outputs (results/plots/, or DAB_RESULTS/plots/):
-#   by_method_scatter.png        estimate vs reading, 1:1 line, shared axes
-#   by_method_error.png          signed % error per tree + site, plus averages
-#   by_method_error_mm.png       signed error in mm, pseudo-log axis
-#   by_method_boxplot.png        signed % error, DBH vs DAB
-#   by_method_boxplot_mm.png     signed error in mm, DBH vs DAB
-#   by_method_bland_altman.png   estimate - reading vs mean, per-method bias and limits
+# Outputs (results/plots/, or DAB_RESULTS/plots/), <src> = the paint source:
+#   by_method_<src>_scatter.png        estimate vs reading, 1:1 line, shared axes
+#   by_method_<src>_error.png          signed % error per tree + site, plus averages
+#   by_method_<src>_error_mm.png       signed error in mm, pseudo-log axis
+#   by_method_<src>_boxplot.png        signed % error, by group
+#   by_method_<src>_boxplot_mm.png     signed error in mm, by group
+#   by_method_<src>_bland_altman.png   estimate - reading vs mean, per-method bias and limits
 #
-# Run:  Rscript scripts/Step07_Analysis/plot_by_method.R
+# Run:  Rscript scripts/Step07_Analysis/plot_by_method.R ForestGeoPaint
+#       Rscript scripts/Step07_Analysis/plot_by_method.R DendroPaint
 # =============================================================================
 
 suppressMessages({ library(readxl); library(dplyr); library(tidyr); library(ggplot2) })
@@ -42,12 +44,34 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- character(0)   # trees dropped from an extra average bar and the Bland-Altman limits, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
-PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: their PaintMarker site is DBH, not DAB (DJ, 2026-09-28)
-EXCLUDE_SITES       <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
+PAINT_DBH_TREES     <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: on these trees the paint site (either source) is DBH, not DAB (DJ, 2026-09-28)
+EXCLUDE_SITES       <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
 
-# field reading column for each site with ground truth, and its short label
-FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
-SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+# Paint-mark source for this run, given as the first argument (DJ, 2026-10-06):
+#   ForestGeoPaint = the red ForestGEO census mark, DendroPaint = the blue
+#   dendrometer-program mark. Each has its own field diameter and date, and the
+#   source goes into every output file name. The validation sites are the
+#   Dendrometer bands plus this source's paint marks. The old PaintMarker site is
+#   not used: its values are split by source into these two sites, so keeping it
+#   would count the same marks twice, and on the red-only trees its field value
+#   came from the blue program.
+PAINT_SOURCES <- c(ForestGeoPaint = "red ForestGEO paint marks", DendroPaint = "blue dendrometer-program paint marks")
+PAINT_SOURCE  <- commandArgs(trailingOnly = TRUE)[1]
+if (is.na(PAINT_SOURCE) || !PAINT_SOURCE %in% names(PAINT_SOURCES))
+  stop("Give the paint source as the first argument: ", paste(names(PAINT_SOURCES), collapse = " or "))
+SRC_LABEL <- PAINT_SOURCES[[PAINT_SOURCE]]
+
+# three groups, by why the site is hard to measure, not by size
+GROUPS      <- c("Band (dendrometer)", "DBH (low paint mark)", "DAB (above buttress)")
+GROUP_FILLS <- setNames(c("#999999", "#56B4E9", "#D55E00"), GROUPS)
+site_group  <- function(site, tree) case_when(site == "Dendrometer" ~ GROUPS[1],
+                                              tree %in% PAINT_DBH_TREES ~ GROUPS[2],
+                                              TRUE ~ GROUPS[3])
+
+# field reading column for each validation site, and its short label
+FIELD_COL  <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
+                       c("Dendrometer", PAINT_SOURCE))
+SITE_SHORT <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
 HAS_SENS   <- length(EXCLUDE_SENSITIVITY) > 0
 EXCL_LABEL <- sprintf("excl. %s", paste(EXCLUDE_SENSITIVITY, collapse = ", "))
 
@@ -78,7 +102,7 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   ))) %>%
   filter(!is.na(reading)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
-  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"))
+  mutate(size = site_group(site, tree))
 
 if (nrow(acc) == 0) {
   cat("[by-method plots skipped] no field readings in the sheet yet\n")
@@ -106,7 +130,9 @@ print(as.data.frame(long %>% count(method_label)), row.names = FALSE)
 
 FLAG_SHAPE <- scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 1), guide = "none")
 flag_note  <- sprintf("open markers = flagged ring (MaxEdgeFrac >= %.1f)", FLAG_THRESHOLD)
-save_plot  <- function(p, name, w, h) ggsave(file.path(plotdir, name), p, width = w, height = h, dpi = 130)
+save_plot  <- function(p, name, w, h) ggsave(file.path(plotdir, sub("^by_method_", sprintf("by_method_%s_", PAINT_SOURCE), name)),
+                                              p, width = w, height = h, dpi = 130)
+SITES_NOTE <- sprintf("Dendrometer bands and %s", SRC_LABEL)
 
 # ---- estimate vs reading: shared axes, so the panels compare directly
 lim <- range(c(long$est, long$reading), na.rm = TRUE)
@@ -117,7 +143,7 @@ p_scatter <- ggplot(long, aes(reading, est, colour = method_label, shape = flagg
   scale_colour_method(guide = "none") + FLAG_SHAPE +
   coord_equal(xlim = lim, ylim = lim) +
   labs(title = "Estimated Diameter vs. Field Reading, by Method",
-       subtitle = paste0("All validated sites, dashed = 1:1, ", flag_note),
+       subtitle = paste0(SITES_NOTE, ", dashed = 1:1, ", flag_note),
        x = "Field reading (mm)", y = "Estimated diameter (mm)") +
   theme_minimal(base_size = 11)
 save_plot(p_scatter, "by_method_scatter.png", 11, 8)
@@ -175,17 +201,16 @@ p_error_mm <- ggplot(per_tree("err"), aes(tree_label, value, colour = method_lab
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 save_plot(p_error_mm, "by_method_error_mm.png", 10, 13)
 
-# ---- signed % error, DBH vs DAB
+# ---- signed % error, by group
 p_box <- ggplot(long, aes(size, pct, fill = size)) +
   geom_hline(yintercept = 0, colour = "grey40") +
   geom_boxplot(outlier.shape = NA, alpha = 0.7, width = 0.6) +
   geom_jitter(aes(shape = flagged), width = 0.12, height = 0, size = 1.8, alpha = 0.8) +
   facet_wrap(~ method_label, ncol = 3, scales = "free_y") +
   FLAG_SHAPE +
-  scale_fill_manual(values = c("DBH" = "#56B4E9", "DAB (above buttress)" = "#D55E00"),
-                    name = "Measurement type") +
+  scale_fill_manual(values = GROUP_FILLS, name = "Measurement type") +
   labs(title = "Signed Percent Error vs. Field Reading, by Method and Measurement Type",
-       subtitle = paste0("All validated sites, ", flag_note, ". The y axis differs per panel."),
+       subtitle = paste0(SITES_NOTE, ", ", flag_note, ". The y axis differs per panel."),
        x = NULL, y = "Error  (est - reading) / reading  [%]") +
   theme_minimal(base_size = 11)
 save_plot(p_box, "by_method_boxplot.png", 11, 8)
@@ -220,4 +245,4 @@ p_ba <- ggplot(ba_data, aes(mean_est, err, colour = method_label, shape = flagge
   theme_minimal(base_size = 11)
 save_plot(p_ba, "by_method_bland_altman.png", 11, 8)
 
-cat(sprintf("\nWrote %s/by_method_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png\n", plotdir))
+cat(sprintf("\nWrote %s/by_method_%s_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png\n", plotdir, PAINT_SOURCE))

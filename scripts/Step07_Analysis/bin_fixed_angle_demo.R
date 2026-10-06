@@ -57,15 +57,20 @@ dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 EXCLUDE_SENSITIVITY <- character(0)   # trees for an extra "excl." sensitivity row and average bar, empty = none (3853 back in everything, its second-pass ring is fine, DJ 2026-09-28)
 FLAG_THRESHOLD      <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 
-# field reading column for each site with ground truth (NA at the other sites)
-FIELD_COL <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
+# field reading column for each site with ground truth (NA at the other sites).
+# Both paint sources are shown (DJ, 2026-10-06). The old PaintMarker site is
+# not: its values are split by source into ForestGeoPaint and DendroPaint.
+FIELD_COL <- c(Dendrometer = "Dendrometer_FieldDiameter",
+               ForestGeoPaint = "ForestGeoPaint_FieldDiameter_mm", DendroPaint = "DendroPaint_FieldDiameter_mm")
+# picked-height column per site; two are named this way in the sheet (DJ, 2026-10-06)
+HEIGHT_COL <- c(ForestGeoPaint = "Y_value_ForestGeoPaint (Red)", DendroPaint = "Y_value_DendroPaint (Blue)")
 
 raw <- read_excel(sheet) %>%
   mutate(Tree_Tag = as.character(Tree_Tag)) %>%
   filter(!is.na(Tree_Tag)) %>%
   filter(Tree_Tag != "XXXX")   # tag unknown -- excluded from all analyses (DJ, 2026-09-21)
 
-sites <- c("TopFlag", "LowerFlag", "PaintMarker", "Dendrometer")
+sites <- c("TopFlag", "LowerFlag", "ForestGeoPaint", "DendroPaint", "Dendrometer")
 
 demo <- bind_rows(lapply(sites, function(s) {
   # looked up outside transmute(): NA at sites with no field column
@@ -73,7 +78,7 @@ demo <- bind_rows(lapply(sites, function(s) {
   raw %>%
     transmute(tree_id = Tree_Tag,
               site = s,
-              height_m = .data[[sprintf("Y_value_%s", s)]],
+              height_m = .data[[if (s %in% names(HEIGHT_COL)) HEIGHT_COL[[s]] else sprintf("Y_value_%s", s)]],
               diameter_mm = .data[[sprintf(SITE_COLUMN_PATTERN, s)]],
               field_reading_mm = field,
               flagged = suppressWarnings(as.numeric(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]])) >= FLAG_THRESHOLD)
@@ -91,7 +96,7 @@ print(as.data.frame(demo), row.names = FALSE)
 p <- ggplot(demo, aes(tree_id, diameter_mm, colour = site)) +
   geom_point(size = 3) +
   scale_colour_manual(values = c(LowerFlag = "#0072B2", Dendrometer = "#009E73", TopFlag = "#E69F00",
-                                 PaintMarker = "#CC79A7"),
+                                 ForestGeoPaint = "#CC3311", DendroPaint = "#56B4E9"),
                        name = "Site") +
   labs(title = "Binned hull, fixed angle -- diameter at every processed site",
        subtitle = "Applied to every processed tree/site, not just the field-validated subset used to check it\n(first pass: 2° and 10mm arc-length bins scored virtually identically here -- a result specific to this dataset)",

@@ -8,7 +8,8 @@
 # the BCI census record shows its own paint-mark diameters moving around from
 # visit to visit. This script puts the two side by side: the differences
 # within the census record, and each scan method's error against the field
-# reading on the 18 validation sites.
+# reading on the validation sites of one paint source (the Dendrometer bands
+# and that source's paint marks; first argument, see CONFIG).
 #
 # Input: the BCI 50ha dendrometer census record for the project's trees
 # (FIELD_RECORD, sheet "Dendrometer Data"), and the working sheet for the scan
@@ -38,16 +39,19 @@
 #   C. consecutive distinct reference (old) values at the same height:
 #      later - earlier.
 #
-# Outputs (results/, or DAB_RESULTS):
-#   field_record_pairs.csv       every pair, with a comparison column
-#   field_record_excluded.csv    every value or pair left out, with the reason
-#   field_record_summary.csv     per comparison and per scan method: pairs, trees,
+# Outputs (results/, or DAB_RESULTS), <src> = the paint source:
+#   field_record_pairs.csv       every pair, with a comparison column (the same for both sources)
+#   field_record_excluded.csv    every value or pair left out, with the reason (the same for both)
+#   field_record_summary_<src>.csv  per comparison and per scan method: pairs, trees,
 #                                median years apart, mean / median / 90th pct / max
 #                                absolute difference (mm), mean / median absolute
 #                                difference (%), decreases, pairs >= 30 / 50 / 100 mm
-#   plots/field_record_vs_scan.png
+#   field_record_per_tree_<src>.csv  per validation tree-site: census spread at the current mark
+#   plots/field_record_vs_scan_<src>.png
+#   plots/field_record_per_tree_<src>.png
 #
-# Run:  Rscript scripts/Step07_Analysis/compare_field_record.R
+# Run:  Rscript scripts/Step07_Analysis/compare_field_record.R ForestGeoPaint
+#       Rscript scripts/Step07_Analysis/compare_field_record.R DendroPaint
 # =============================================================================
 
 suppressMessages({ library(readxl); library(dplyr); library(tidyr); library(ggplot2) })
@@ -68,7 +72,21 @@ outdir  <- Sys.getenv("DAB_RESULTS", "results")
 plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 PAINT_DBH_TREES  <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height: DBH (DJ, 2026-09-28)
-EXCLUDE_SITES    <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
+EXCLUDE_SITES    <- character(0)            # tree + site pairs left out, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
+# Paint-mark source for this run, given as the first argument (DJ, 2026-10-06):
+#   ForestGeoPaint = the red ForestGEO census mark, DendroPaint = the blue
+#   dendrometer-program mark. Each has its own field diameter and date, and the
+#   source goes into every output file name. The validation sites are the
+#   Dendrometer bands plus this source's paint marks. The old PaintMarker site is
+#   not used: its values are split by source into these two sites, so keeping it
+#   would count the same marks twice, and on the red-only trees its field value
+#   came from the blue program.
+PAINT_SOURCES <- c(ForestGeoPaint = "red ForestGEO paint marks", DendroPaint = "blue dendrometer-program paint marks")
+PAINT_SOURCE  <- commandArgs(trailingOnly = TRUE)[1]
+if (is.na(PAINT_SOURCE) || !PAINT_SOURCE %in% names(PAINT_SOURCES))
+  stop("Give the paint source as the first argument: ", paste(names(PAINT_SOURCES), collapse = " or "))
+SRC_LABEL <- PAINT_SOURCES[[PAINT_SOURCE]]
+
 ENTRY_ERROR_FRAC <- 0.75                    # a value below this x the tag's median is an entry error
 TREE_2033_MAX_MM <- 2700                    # 2033's values at or above this are left out (see header)
 THRESHOLDS_MM    <- c(30, 50, 100)          # counted in the summary
@@ -163,7 +181,8 @@ pairs <- pairs_all[!diff_height, ] %>%
 
 # ------------------------------------------------------------------ scan side
 # same sheet, sites and filters as validate_field_accuracy.R, all six methods
-FIELD_COL <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
+FIELD_COL <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
+                      c("Dendrometer", PAINT_SOURCE))
 raw <- read_excel(sheet) %>% mutate(Tree_Tag = as.character(Tree_Tag)) %>%
   filter(!is.na(Tree_Tag), Tree_Tag != "XXXX")
 scan <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>% transmute(
@@ -210,7 +229,7 @@ write.csv(pairs %>% select(comparison, tag, census_1, census_2, date_1, date_2, 
           file.path(outdir, "field_record_pairs.csv"), row.names = FALSE)
 excl <- bind_rows(excluded) %>% arrange(tag, date)
 write.csv(excl, file.path(outdir, "field_record_excluded.csv"), row.names = FALSE)
-write.csv(summary_tbl, file.path(outdir, "field_record_summary.csv"), row.names = FALSE)
+write.csv(summary_tbl, file.path(outdir, sprintf("field_record_summary_%s.csv", PAINT_SOURCE)), row.names = FALSE)
 
 cat(sprintf("Census record: %d rows after dropping duplicates, %d values or pairs left out.\n",
             nrow(rec), nrow(excl)))
@@ -218,6 +237,71 @@ cat("\n-- left out, by reason --\n")
 print(as.data.frame(excl %>% mutate(reason = sub(":.*", "", reason)) %>% count(reason)), row.names = FALSE)
 cat("\n-- summary --\n")
 print(as.data.frame(summary_tbl %>% mutate(across(where(is.double), ~ round(.x, 1)))), row.names = FALSE)
+
+# ------------------------------------------------------------------ per tree
+# For each validation tree-site: every retained census value (taped and
+# reference) at the tree's current paint-mark height, over the whole record,
+# and its largest spread (max - min), next to the five cloud methods and the
+# field reading. Growth over the record is included in the spread. The census
+# values are at the paint mark, so on a Dendrometer site they are the paint
+# mark's history, not the band's.
+current_height <- rec %>% group_by(tag) %>% summarise(mark_height = last(na.omit(height)), .groups = "drop")
+census_vals <- rec %>% left_join(current_height, by = "tag") %>%
+  filter(!is.na(height), height == mark_height) %>%
+  select(tag, date, height, old, new) %>%
+  pivot_longer(c(old, new), names_to = "kind", values_to = "value") %>% filter(!is.na(value))
+census_tree <- census_vals %>% group_by(tag) %>%
+  summarise(mark_height = first(height), n_values = n(),
+            first_year = as.numeric(format(min(date), "%Y")), last_year = as.numeric(format(max(date), "%Y")),
+            census_min = min(value), census_max = max(value), census_spread_mm = census_max - census_min,
+            .groups = "drop")
+CLOUD_METHODS <- setdiff(METHOD_ORDER, "ForestScanner (in-app)")
+scan_cloud <- scan %>% filter(comparison %in% CLOUD_METHODS)
+per_tree <- scan_cloud %>% distinct(tag, site, reading) %>%
+  left_join(census_tree, by = "tag") %>%
+  left_join(scan_cloud %>% select(tag, site, comparison, est) %>%
+              pivot_wider(names_from = comparison, values_from = est), by = c("tag", "site")) %>%
+  mutate(field_in_census_range = reading >= census_min & reading <= census_max) %>%
+  arrange(reading)
+n_in_range <- scan_cloud %>% left_join(census_tree, by = "tag") %>%
+  group_by(comparison) %>%
+  summarise(inside_census_range = sum(est >= census_min & est <= census_max), n = n(), .groups = "drop")
+write.csv(per_tree, file.path(outdir, sprintf("field_record_per_tree_%s.csv", PAINT_SOURCE)), row.names = FALSE)
+cat("\n-- per tree: census spread at the current mark, and the field reading --\n")
+print(as.data.frame(per_tree %>% select(tag, site, reading, mark_height, n_values, first_year, last_year,
+                                        census_min, census_max, census_spread_mm, field_in_census_range) %>%
+                      mutate(reading = round(reading))), row.names = FALSE)
+cat("\n-- scan estimates inside the tree's census range --\n")
+print(as.data.frame(n_in_range), row.names = FALSE)
+
+site_short <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
+row_levels <- per_tree %>% mutate(lab = sprintf("%s %s (%.0f)", tag, site_short[site], reading)) %>% pull(lab)
+lab_of <- function(tag, site, reading) factor(sprintf("%s %s (%.0f)", tag, site_short[site], reading), row_levels)
+pt_census <- per_tree %>% select(tag, site, reading) %>%
+  inner_join(census_vals, by = "tag", relationship = "many-to-many") %>%
+  mutate(row = lab_of(tag, site, reading), dev = value - reading)
+pt_range <- per_tree %>% mutate(row = lab_of(tag, site, reading),
+                                lo = census_min - reading, hi = census_max - reading)
+pt_scan <- scan_cloud %>% mutate(row = lab_of(tag, site, reading), dev = est - reading,
+                                 method_label = factor(comparison, METHOD_ORDER))
+p_tree <- ggplot() +
+  geom_vline(xintercept = 0, colour = "grey30") +
+  geom_segment(data = pt_range, aes(x = lo, xend = hi, y = row, yend = row),
+               linewidth = 5, colour = "grey85", lineend = "round") +
+  geom_point(data = pt_census, aes(dev, row), colour = "grey45", size = 1.2,
+             position = position_jitter(width = 0, height = 0.12, seed = 1)) +
+  geom_point(data = pt_scan, aes(dev, row, colour = method_label, shape = method_label),
+             size = 2.6, stroke = 1, position = position_dodge(width = 0.6)) +
+  scale_colour_method() + scale_shape_method() +
+  labs(title = "Census Paint-Mark Diameters and Scan Estimates, per Tree",
+       subtitle = paste0(sprintf("Dendrometer bands and %s. ", SRC_LABEL),
+                         "Each row is a validation tree-site, labelled with its field reading (mm). Everything is shown as the difference from that reading.\n",
+                         "Grey bar and dots = every census value (taped and reference) at the tree's current paint mark, whole record, growth included.\n",
+                         "On Dendrometer rows the census values are the paint mark's history, not the band's."),
+       x = "Difference from the field reading (mm)", y = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+ggsave(file.path(plotdir, sprintf("field_record_per_tree_%s.png", PAINT_SOURCE)), p_tree, width = 12, height = 8.5, dpi = 130)
 
 # ------------------------------------------------------------------ figure
 pd <- bind_rows(pairs %>% transmute(comparison, abs_mm),
@@ -233,11 +317,12 @@ p <- ggplot(pd, aes(comparison, abs_mm, fill = comparison)) +
   scale_y_continuous(trans = scales::pseudo_log_trans(sigma = 10, base = 10),
                      breaks = c(0, 10, 30, 100, 300, 1000)) +
   labs(title = "Differences Within the Census Record, and Scan Errors Against the Field Reading",
-       subtitle = sprintf("Census record (grey): A = same visit (new - old), B = consecutive new measurements, C = consecutive reference values.\nScan methods: all %d validation sites. Dashed line = median of C (%.0f mm). Pseudo-log axis.",
-                          n_distinct(paste(scan$tag, scan$site)), c_median),
+       subtitle = sprintf("Census record (grey): A = same visit (new - old), B = consecutive new measurements, C = consecutive reference values.\nScan methods: %d validation sites, dendrometer bands and %s. Dashed line = median of C (%.0f mm). Pseudo-log axis.",
+                          n_distinct(paste(scan$tag, scan$site)), SRC_LABEL, c_median),
        x = NULL, y = "Absolute difference (mm)") +
   theme_minimal(base_size = 11) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
-ggsave(file.path(plotdir, "field_record_vs_scan.png"), p, width = 12, height = 6.5, dpi = 130)
+ggsave(file.path(plotdir, sprintf("field_record_vs_scan_%s.png", PAINT_SOURCE)), p, width = 12, height = 6.5, dpi = 130)
 
-cat(sprintf("\nWrote %s/field_record_{pairs,excluded,summary}.csv and %s/field_record_vs_scan.png\n", outdir, plotdir))
+cat(sprintf("\nWrote %s/field_record_{pairs,excluded}.csv, field_record_{summary,per_tree}_%s.csv and %s/field_record_{vs_scan,per_tree}_%s.png\n",
+            outdir, PAINT_SOURCE, plotdir, PAINT_SOURCE))

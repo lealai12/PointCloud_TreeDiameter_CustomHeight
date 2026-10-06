@@ -9,11 +9,13 @@
 # threaded under by a tape. This script reports the split. It does not say
 # the fig is in the ring: that has to be checked in the RGB slices.
 #
-# PART 1 -- fig noted vs. no fig noted, at the PaintMarker site on every tree
+# Run once per paint source (first argument, see CONFIG).
+#
+# PART 1 -- fig noted vs. no fig noted, at the source's paint site on every tree
 # NOT in PAINT_DBH_TREES (the above-buttress paint marks). All six methods.
 #
-# PART 2 -- field_accuracy_all_sites_error.png without the fig paint sites:
-# every Dendrometer site, plus the PaintMarker site on every tree not in
+# PART 2 -- the field_accuracy error chart without the fig paint sites:
+# every Dendrometer site, plus the source's paint site on every tree not in
 # FIG_TREES. Signed % bars per tree + site with the mm error printed on each,
 # the five cloud methods. A Dendrometer site stays in even on a fig tree
 # (3853), since the fig note there is about the band.
@@ -21,13 +23,15 @@
 # Both parts drop EXCLUDE_SITES. No row is dropped for having a large error.
 #
 # Outputs (results/, or DAB_RESULTS):
-#   fig_notes_pertree.csv         Part 1, one row per tree + method: reading, estimate, error in mm and %
-#   fig_notes_summary.csv         Part 1, per method and group: n, bias, MAE, RMSE (mm), mean % error, MAPE,
-#                                 plus a "fig minus no fig" row with an exact one-sided permutation p
-#   plots/fig_notes_error.png     Part 1, box + points, one panel per method, mm row and % row
-#   plots/field_accuracy_no_fig_sites_error.png   Part 2, signed % bars, mm on each bar
+# <src> = the paint source:
+#   fig_notes_<src>_pertree.csv         Part 1, one row per tree + method: reading, estimate, error in mm and %
+#   fig_notes_<src>_summary.csv         Part 1, per method and group: n, bias, MAE, RMSE (mm), mean % error, MAPE,
+#                                       plus a "fig minus no fig" row with an exact one-sided permutation p
+#   plots/fig_notes_<src>_error.png     Part 1, box + points, one panel per method, mm row and % row
+#   plots/field_accuracy_no_fig_sites_<src>_error.png   Part 2, signed % bars, mm on each bar
 #
-# Run:  Rscript scripts/Step07_Analysis/compare_fig_notes.R
+# Run:  Rscript scripts/Step07_Analysis/compare_fig_notes.R ForestGeoPaint
+#       Rscript scripts/Step07_Analysis/compare_fig_notes.R DendroPaint
 # =============================================================================
 
 suppressMessages({ library(readxl); library(dplyr); library(tidyr); library(ggplot2) })
@@ -47,18 +51,40 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 FLAG_THRESHOLD  <- 0.5         # MaxEdgeFrac at or above this = flagged ring (sheet values are 3-decimal, so >=)
 PAINT_DBH_TREES <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height, below any buttress: DBH, not DAB. Left out of Part 1, which compares DAB paint sites only (DJ, 2026-09-28)
-EXCLUDE_SITES   <- c("6647 PaintMarker")   # tree + site left out of every analysis: bad scan at the mark (DJ, 2026-09-28)
+EXCLUDE_SITES   <- character(0)   # tree + site pairs left out of every analysis, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
 # Trees with a fig noted in the BCI 50ha dendrometer census Notes
 # (BCI50ha_20tags_paintDiam_fullrecord.xlsx, sheet "Dendrometer Data"):
 # 1993 "TIENE FICUS" (census 16-17, 2015-16), 3853 (census 27, 2023),
 # 4524 (census 28, 2024), 5027 (census 27, 2023), 6883 (census 25 and 29,
-# 2021 and 2025), 7163 (census 27-28, 2023-24). 3853 and 6883 have no DAB
-# paint site with a reading, so they don't enter Part 1. (DJ, 2026-09-28)
+# 2021 and 2025), 7163 (census 27-28, 2023-24). 6883 has no paint site with a
+# reading, so it doesn't enter Part 1. (DJ, 2026-09-28)
 FIG_TREES <- c("1993", "3853", "4524", "5027", "6883", "7163")
 
-# field reading column for each site with ground truth
-FIELD_COL  <- c(Dendrometer = "Dendrometer_FieldDiameter", PaintMarker = "PaintMarker_FieldDiameter_mm")
-SITE_SHORT <- c(Dendrometer = "Dendro", PaintMarker = "Paint")
+# Paint-mark source for this run, given as the first argument (DJ, 2026-10-06):
+#   ForestGeoPaint = the red ForestGEO census mark, DendroPaint = the blue
+#   dendrometer-program mark. Each has its own field diameter and date, and the
+#   source goes into every output file name. The validation sites are the
+#   Dendrometer bands plus this source's paint marks. The old PaintMarker site is
+#   not used: its values are split by source into these two sites, so keeping it
+#   would count the same marks twice, and on the red-only trees its field value
+#   came from the blue program.
+PAINT_SOURCES <- c(ForestGeoPaint = "red ForestGEO paint marks", DendroPaint = "blue dendrometer-program paint marks")
+PAINT_SOURCE  <- commandArgs(trailingOnly = TRUE)[1]
+if (is.na(PAINT_SOURCE) || !PAINT_SOURCE %in% names(PAINT_SOURCES))
+  stop("Give the paint source as the first argument: ", paste(names(PAINT_SOURCES), collapse = " or "))
+SRC_LABEL <- PAINT_SOURCES[[PAINT_SOURCE]]
+
+# three groups, by why the site is hard to measure, not by size
+GROUPS      <- c("Band (dendrometer)", "DBH (low paint mark)", "DAB (above buttress)")
+GROUP_FILLS <- setNames(c("#999999", "#56B4E9", "#D55E00"), GROUPS)
+site_group  <- function(site, tree) case_when(site == "Dendrometer" ~ GROUPS[1],
+                                              tree %in% PAINT_DBH_TREES ~ GROUPS[2],
+                                              TRUE ~ GROUPS[3])
+
+# field reading column for each validation site, and its short label
+FIELD_COL  <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
+                       c("Dendrometer", PAINT_SOURCE))
+SITE_SHORT <- c(Dendrometer = "Band", ForestGeoPaint = "Red", DendroPaint = "Blue")
 
 num <- function(x) suppressWarnings(as.numeric(x))
 
@@ -87,7 +113,7 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
   # validate_field_accuracy.R (a sheet row with a reading but no slice is skipped)
   filter(!is.na(reading), !is.na(Python_true_hull)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
-  mutate(size = if_else(site == "Dendrometer" | tree %in% PAINT_DBH_TREES, "DBH", "DAB (above buttress)"),
+  mutate(size = site_group(site, tree),
          fig  = factor(if_else(tree %in% FIG_TREES, "Fig noted", "No fig noted"), c("Fig noted", "No fig noted")))
 
 if (nrow(acc_all) == 0) {
@@ -143,7 +169,7 @@ two_row_plot <- function(d, group_col, fills, title, subtitle, label_col = "tree
 # ===========================================================================
 # PART 1 -- fig noted vs. no fig noted, DAB paint sites, all six methods
 # ===========================================================================
-acc <- acc_all %>% filter(site == "PaintMarker", !tree %in% PAINT_DBH_TREES)
+acc <- acc_all %>% filter(site == PAINT_SOURCE, !tree %in% PAINT_DBH_TREES)
 
 if (nrow(acc) == 0) {
   cat("[Part 1 skipped] no DAB paint-site field readings in the sheet yet\n")
@@ -156,7 +182,7 @@ if (nrow(acc) == 0) {
     transmute(tree, site, fig, reading, method = method_label, est,
               err_mm = round(err, 1), err_pct = round(pct, 2), flagged) %>%
     arrange(method, fig, reading)
-  write.csv(pertree, file.path(outdir, "fig_notes_pertree.csv"), row.names = FALSE)
+  write.csv(pertree, file.path(outdir, sprintf("fig_notes_%s_pertree.csv", PAINT_SOURCE)), row.names = FALSE)
 
   # exact one-sided permutation test on the difference in mean error (fig minus
   # no fig): every way of choosing which trees carry the "fig" label, not a sample
@@ -178,20 +204,20 @@ if (nrow(acc) == 0) {
               p_pct    = perm_p(pct, fig == "Fig noted"), .groups = "drop")
   summary_tbl <- bind_rows(by_group, diffs) %>%
     arrange(method, factor(group, c("Fig noted", "No fig noted", "fig minus no fig")))
-  write.csv(summary_tbl, file.path(outdir, "fig_notes_summary.csv"), row.names = FALSE)
+  write.csv(summary_tbl, file.path(outdir, sprintf("fig_notes_%s_summary.csv", PAINT_SOURCE)), row.names = FALSE)
   cat("\n-- Part 1, per method and group (mm and %) --\n")
   show(summary_tbl)
 
   p1 <- two_row_plot(long, "fig", c("Fig noted" = "#009E73", "No fig noted" = "#999999"),
-    "Error vs. Field Reading at Buttressed Paint Marks: Fig Noted vs. No Fig Noted",
+    sprintf("Error vs. Field Reading at Buttressed Paint Marks (%s): Fig Noted vs. No Fig Noted", SRC_LABEL),
     sprintf("n = %d DAB paint sites (%d with a fig in the BCI census notes). Top row mm, bottom row %%. Open markers = flagged ring (MaxEdgeFrac >= %.1f). The y axis differs per panel.",
             nrow(acc), sum(acc$fig == "Fig noted"), FLAG_THRESHOLD))
-  ggsave(file.path(plotdir, "fig_notes_error.png"), p1, width = 17, height = 7.5, dpi = 130)
-  cat(sprintf("\nWrote %s/fig_notes_{pertree,summary}.csv and %s/fig_notes_error.png\n", outdir, plotdir))
+  ggsave(file.path(plotdir, sprintf("fig_notes_%s_error.png", PAINT_SOURCE)), p1, width = 17, height = 7.5, dpi = 130)
+  cat(sprintf("\nWrote %s/fig_notes_%s_{pertree,summary}.csv and %s/fig_notes_%s_error.png\n", outdir, PAINT_SOURCE, plotdir, PAINT_SOURCE))
 }
 
 # ===========================================================================
-# PART 2 -- field_accuracy_all_sites_error.png without the fig paint sites:
+# PART 2 -- the field_accuracy error chart without the fig paint sites:
 # every Dendrometer site plus the paint sites on trees not in FIG_TREES. Same
 # layout as validate_field_accuracy.R's error plot (signed % bars per tree +
 # site, ordered by reading, plus a per-method average), for the four cloud
@@ -220,10 +246,10 @@ p2 <- ggplot(p2_data, aes(reorder(tree_label, reading), pct, fill = method_label
   scale_y_continuous(expand = expansion(mult = c(0.12, 0.18))) +
   scale_fill_method() +
   labs(title = "Signed Percent Error vs. Field Reading, Without the Fig Paint Sites",
-       subtitle = sprintf("Every dendrometer site plus the paint sites on trees without a fig note (n = %d tree-sites) -- trees ordered by reading, plus per-method averages.\nNumber on each bar = error in mm.",
-                          nrow(acc2)),
+       subtitle = sprintf("Every dendrometer band plus the %s on trees without a fig note (n = %d tree-sites) -- trees ordered by reading, plus per-method averages.\nNumber on each bar = error in mm.",
+                          SRC_LABEL, nrow(acc2)),
        x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]") +
   theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave(file.path(plotdir, "field_accuracy_no_fig_sites_error.png"), p2, width = 13, height = 6, dpi = 130)
-cat(sprintf("\nWrote %s/field_accuracy_no_fig_sites_error.png\n", plotdir))
+ggsave(file.path(plotdir, sprintf("field_accuracy_no_fig_sites_%s_error.png", PAINT_SOURCE)), p2, width = 13, height = 6, dpi = 130)
+cat(sprintf("\nWrote %s/field_accuracy_no_fig_sites_%s_error.png\n", plotdir, PAINT_SOURCE))
