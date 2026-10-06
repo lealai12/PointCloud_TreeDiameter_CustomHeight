@@ -1,6 +1,6 @@
 "set","source","method_label","n","bias","MAE","RMSE","MAPE"
 "all paint sites","Blue (dendrometer program)","ForestScanner (in-app)",4,-614.325,614.325,797.753014723229,38.5780026515684
-"all paint sites","Red (ForestGEO)","ForestScanner (in-app)",5,-675.26,675.26,878.511751771142,40.1008796114213
+"all paint sites","Red (ForestGEO)","ForestScanner (in-app)",4,-741.575,741.575,960.574631405598,44.302235877913
 "all paint sites","Blue (dendrometer program)","Convex hull",11,97.8181818181818,97.8181818181818,125.538114458591,8.34561795406676
 "all paint sites","Red (ForestGEO)","Convex hull",8,144,144,185.899838622845,12.027295189358
 "all paint sites","Blue (dendrometer program)","Binned hull, fixed angle",11,66.0909090909091,67.5454545454545,88.940736141852,5.89047359397222
@@ -12,7 +12,7 @@
 "all paint sites","Blue (dendrometer program)","Circle fit (least squares)",11,7.09090909090909,32.7272727272727,42.4028300942284,3.00258585931041
 "all paint sites","Red (ForestGEO)","Circle fit (least squares)",8,25.75,68.25,131.296420362476,6.53109500102692
 "all paint sites, excl. 3853 Red","Blue (dendrometer program)","ForestScanner (in-app)",4,-614.325,614.325,797.753014723229,38.5780026515684
-"all paint sites, excl. 3853 Red","Red (ForestGEO)","ForestScanner (in-app)",5,-675.26,675.26,878.511751771142,40.1008796114213
+"all paint sites, excl. 3853 Red","Red (ForestGEO)","ForestScanner (in-app)",4,-741.575,741.575,960.574631405598,44.302235877913
 "all paint sites, excl. 3853 Red","Blue (dendrometer program)","Convex hull",11,97.8181818181818,97.8181818181818,125.538114458591,8.34561795406676
 "all paint sites, excl. 3853 Red","Red (ForestGEO)","Convex hull",7,104.571428571429,104.571428571429,119.564686616552,7.54072323605755
 "all paint sites, excl. 3853 Red","Blue (dendrometer program)","Binned hull, fixed angle",11,66.0909090909091,67.5454545454545,88.940736141852,5.89047359397222
@@ -34,7 +34,7 @@
 "DBH (low paint mark)","Blue (dendrometer program)","Circle fit (least squares)",5,-5.6,22,28.0570846668003,3.72937489288187
 "DBH (low paint mark)","Red (ForestGEO)","Circle fit (least squares)",1,-12,12,12,2.67857142857143
 "DAB (above buttress)","Blue (dendrometer program)","ForestScanner (in-app)",4,-614.325,614.325,797.753014723229,38.5780026515684
-"DAB (above buttress)","Red (ForestGEO)","ForestScanner (in-app)",5,-675.26,675.26,878.511751771142,40.1008796114213
+"DAB (above buttress)","Red (ForestGEO)","ForestScanner (in-app)",4,-741.575,741.575,960.574631405598,44.302235877913
 "DAB (above buttress)","Blue (dendrometer program)","Convex hull",6,146.833333333333,146.833333333333,165.335517458692,8.82271493494047
 "DAB (above buttress)","Red (ForestGEO)","Convex hull",7,160.571428571429,160.571428571429,198.453305051123,12.852623073552
 "DAB (above buttress)","Blue (dendrometer program)","Binned hull, fixed angle",6,100.5,100.5,116.546843229093,5.97008013386023
@@ -46,7 +46,7 @@
 "DAB (above buttress)","Blue (dendrometer program)","Circle fit (least squares)",6,17.6666666666667,41.6666666666667,51.3841739578767,2.39692833133419
 "DAB (above buttress)","Red (ForestGEO)","Circle fit (least squares)",7,31.1428571428571,76.2857142857143,140.288478296891,7.0814555113777
 "DAB (above buttress), excl. 3853 Red","Blue (dendrometer program)","ForestScanner (in-app)",4,-614.325,614.325,797.753014723229,38.5780026515684
-"DAB (above buttress), excl. 3853 Red","Red (ForestGEO)","ForestScanner (in-app)",5,-675.26,675.26,878.511751771142,40.1008796114213
+"DAB (above buttress), excl. 3853 Red","Red (ForestGEO)","ForestScanner (in-app)",4,-741.575,741.575,960.574631405598,44.302235877913
 "DAB (above buttress), excl. 3853 Red","Blue (dendrometer program)","Convex hull",6,146.833333333333,146.833333333333,165.335517458692,8.82271493494047
 "DAB (above buttress), excl. 3853 Red","Red (ForestGEO)","Convex hull",6,117.333333333333,117.333333333333,128.637734225486,7.75584377540048
 "DAB (above buttress), excl. 3853 Red","Blue (dendrometer program)","Binned hull, fixed angle",6,100.5,100.5,116.546843229093,5.97008013386023
