@@ -8,8 +8,13 @@
 # the BCI census record shows its own paint-mark diameters moving around from
 # visit to visit. This script puts the two side by side: the differences
 # within the census record, and each scan method's error against the field
-# reading on the validation sites of one paint source (the Dendrometer bands
-# and that source's paint marks; first argument, see CONFIG).
+# reading at the Dendrometer bands and the blue (DendroPaint) paint marks.
+#
+# Blue only (DJ, 2026-10-07). The census record is the dendrometer program's,
+# so it is the history of the blue mark: every DendroPaint field value in the
+# working sheet is that record's latest reading. There is no history for the
+# red ForestGEO mark, so a red run would set red readings next to the blue
+# mark's history. The script refuses ForestGeoPaint.
 #
 # Input: the BCI 50ha dendrometer census record for the project's trees
 # (FIELD_RECORD, sheet "Dendrometer Data"), and the working sheet for the scan
@@ -39,19 +44,18 @@
 #   C. consecutive distinct reference (old) values at the same height:
 #      later - earlier.
 #
-# Outputs (results/, or DAB_RESULTS), <src> = the paint source:
-#   field_record_pairs.csv       every pair, with a comparison column (the same for both sources)
-#   field_record_excluded.csv    every value or pair left out, with the reason (the same for both)
-#   field_record_summary_<src>.csv  per comparison and per scan method: pairs, trees,
+# Outputs (results/, or DAB_RESULTS):
+#   field_record_pairs.csv       every pair, with a comparison column
+#   field_record_excluded.csv    every value or pair left out, with the reason
+#   field_record_summary_DendroPaint.csv  per comparison and per scan method: pairs, trees,
 #                                median years apart, mean / median / 90th pct / max
 #                                absolute difference (mm), mean / median absolute
 #                                difference (%), decreases, pairs >= 30 / 50 / 100 mm
-#   field_record_per_tree_<src>.csv  per validation tree-site: census spread at the current mark
-#   plots/field_record_vs_scan_<src>.png
-#   plots/field_record_per_tree_<src>.png
+#   field_record_per_tree_DendroPaint.csv  per validation tree-site: census spread at the current mark
+#   plots/field_record_vs_scan_DendroPaint.png
+#   plots/field_record_per_tree_DendroPaint.png
 #
-# Run:  Rscript scripts/Step07_Analysis/compare_field_record.R ForestGeoPaint
-#       Rscript scripts/Step07_Analysis/compare_field_record.R DendroPaint
+# Run:  Rscript scripts/Step07_Analysis/compare_field_record.R
 # =============================================================================
 
 suppressMessages({ library(readxl); library(dplyr); library(tidyr); library(ggplot2) })
@@ -73,19 +77,15 @@ plotdir <- file.path(outdir, "plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 PAINT_DBH_TREES  <- c("2683", "3031", "180904", "180910", "5943")   # paint mark at breast height: DBH (DJ, 2026-09-28)
 EXCLUDE_SITES    <- character(0)            # tree + site pairs left out, e.g. "6647 DendroPaint". Empty: both 6647 marks stay in (DJ, 2026-10-06)
-# Paint-mark source for this run, given as the first argument (DJ, 2026-10-06):
-#   ForestGeoPaint = the red ForestGEO census mark, DendroPaint = the blue
-#   dendrometer-program mark. Each has its own field diameter and date, and the
-#   source goes into every output file name. The validation sites are the
-#   Dendrometer bands plus this source's paint marks. The old PaintMarker site is
-#   not used: its values are split by source into these two sites, so keeping it
-#   would count the same marks twice, and on the red-only trees its field value
-#   came from the blue program.
-PAINT_SOURCES <- c(ForestGeoPaint = "red ForestGEO paint marks", DendroPaint = "blue dendrometer-program paint marks")
-PAINT_SOURCE  <- commandArgs(trailingOnly = TRUE)[1]
-if (is.na(PAINT_SOURCE) || !PAINT_SOURCE %in% names(PAINT_SOURCES))
-  stop("Give the paint source as the first argument: ", paste(names(PAINT_SOURCES), collapse = " or "))
-SRC_LABEL <- PAINT_SOURCES[[PAINT_SOURCE]]
+# Paint-mark source: DendroPaint (the blue dendrometer-program mark) only, since
+# the census record is that mark's history (see header). The source stays in
+# the output names, so they match the other step 7 outputs.
+PAINT_SOURCE <- "DendroPaint"
+SRC_LABEL    <- "blue dendrometer-program paint marks"
+arg <- commandArgs(trailingOnly = TRUE)[1]
+if (!is.na(arg) && arg != PAINT_SOURCE)
+  stop("compare_field_record.R runs for DendroPaint only: the census record is the blue mark's history, ",
+       "and there is no history for the red ForestGEO mark.")
 
 ENTRY_ERROR_FRAC <- 0.75                    # a value below this x the tag's median is an entry error
 TREE_2033_MAX_MM <- 2700                    # 2033's values at or above this are left out (see header)

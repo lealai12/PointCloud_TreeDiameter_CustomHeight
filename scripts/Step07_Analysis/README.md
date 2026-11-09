@@ -12,7 +12,7 @@ The scripts, and what each one answers:
 - plot_error_by_size.R <src>: signed % error of every method, by group. results\error_by_size_<src>_pertree.csv, results\plots\error_by_size_<src>_boxplot.png
 - plot_by_method.R <src>: the figures above split out, one panel per method, every method. results\plots\by_method_<src>_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png
 - compare_fig_notes.R <src>: at the source's buttressed (DAB) paint sites, error for trees with a fig noted in the BCI census notes vs. trees without, in mm and %. results\fig_notes_<src>_{pertree,summary}.csv, results\plots\fig_notes_<src>_error.png. Also the signed % error bar chart without the fig paint sites, the five cloud methods, with the mm error on each bar. results\plots\field_accuracy_no_fig_sites_<src>_error.png
-- compare_field_record.R <src>: how much the census's own paint-mark diameters differ from each other (same visit, consecutive new measurements, consecutive reference values), next to each method's error against the field reading. Raw differences, no growth correction, all marks together. Values left out are listed with their reason. Also, per tree, the spread of every census value at the current paint mark next to the five cloud methods. results\field_record_{pairs,excluded}.csv, results\field_record_{summary,per_tree}_<src>.csv, results\plots\field_record_{vs_scan,per_tree}_<src>.png
+- compare_field_record.R: how much the census's own paint-mark diameters differ from each other (same visit, consecutive new measurements, consecutive reference values), next to each method's error against the field reading. Raw differences, no growth correction, all marks together. Values left out are listed with their reason. Also, per tree, the spread of every census value at the current paint mark next to the five cloud methods. Blue only: the census record is the dendrometer program's, so it is the history of the blue mark. There is no history for the red mark, so the script refuses ForestGeoPaint. results\field_record_{pairs,excluded}.csv, results\field_record_{summary,per_tree}_DendroPaint.csv, results\plots\field_record_{vs_scan,per_tree}_DendroPaint.png
 - compare_paint_sources.R: the two sources side by side. MAE per method, red against blue, at each source's paint sites, and for trees with both marks every scan estimate against both field values and the difference between the two field values. results\paint_sources_{mae,both_trees}.csv, results\plots\paint_sources_mae.png
 - bin_fixed_angle_demo.R: the fixed-angle binned-hull diameter at every processed site, not just the validated ones. results\bin_fixed_angle_demo_all_sites.{csv,png}
 
@@ -31,8 +31,7 @@ Steps:
     Rscript scripts/Step07_Analysis/plot_by_method.R          DendroPaint
     Rscript scripts/Step07_Analysis/compare_fig_notes.R       ForestGeoPaint
     Rscript scripts/Step07_Analysis/compare_fig_notes.R       DendroPaint
-    Rscript scripts/Step07_Analysis/compare_field_record.R    ForestGeoPaint
-    Rscript scripts/Step07_Analysis/compare_field_record.R    DendroPaint
+    Rscript scripts/Step07_Analysis/compare_field_record.R
     Rscript scripts/Step07_Analysis/compare_paint_sources.R
     Rscript scripts/Step07_Analysis/bin_fixed_angle_demo.R
 
