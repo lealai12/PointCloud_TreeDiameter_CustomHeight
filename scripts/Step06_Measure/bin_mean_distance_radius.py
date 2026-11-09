@@ -132,20 +132,22 @@ TREE_ID_COL = "Tree_Tag"              # column holding each tree's ID
 HEIGHT_COL = None                     # None -> measure each .ply as an already-cut, already-
                                       # polished disc (the normal workflow for this script);
                                       # set to e.g. "Y_value_Dendrometer" to cut on the fly instead
-OUTPUT_COL = "Dendrometer_BinMeanDistanceRadius_pythonScript_Diameter_mm"
+OUTPUT_COL = "Dendrometer_BinMeanDistanceRadiusP50_pythonScript_Diameter_mm"
 PLY_FOLDER = "C:/Projects/LiDAR_Project/Working_Steps/5_PolishedSlices"  # step 5 output: polished slices, <tag>__<Site>.ply
 PLY_FILENAME_PATTERN = "{tree_id}__{site}.ply"   # e.g. "1234__Dendrometer.ply" -- adjust to your own naming
 SITE_LABEL = "Dendrometer"            # substituted into {site} in the pattern
-FLAG_COL = "Dendrometer_BinMeanDistanceRadius_MaxEdgeFrac"   # the gap check, as a NUMBER, not a veto: longest hull
+FLAG_COL = "Dendrometer_BinMeanDistanceRadiusP50_MaxEdgeFrac"   # the gap check, as a NUMBER, not a veto: longest hull
                                       # edge / equivalent diameter. > MAX_EDGE_FRAC (0.5) is
                                       # the flag, but the diameter is written either way so the
                                       # threshold can be revisited in analysis. None to skip.
 
 # ---- method settings (each is also overridable on the command line) ----
-PERCENTILE = 90                       # radius percentile taken inside each angular bin, measured
-                                      # from the ring centroid. 50 = the median (the first-pass
-                                      # method). Higher sits nearer the outer bark surface, where
-                                      # a tape rides. Chosen in advance (2026-09-22), not tuned.
+PERCENTILE = 50                       # radius percentile taken inside each angular bin, measured
+                                      # from the ring centroid. 50 = the median, the original plan and
+                                      # the default since 2026-11-09 (DJ). It writes the P50 columns.
+                                      # Both 50 and 90 are reported. For the 90 columns (the second-pass
+                                      # setting, fixed in advance 2026-09-22), set PERCENTILE = 90 and
+                                      # take P50 out of OUTPUT_COL and FLAG_COL.
 MIN_POINTS_PER_BIN = 10               # QC: a bin with fewer points than this is treated as EMPTY
                                       # and skipped, like a bin with no points.
                                       # Counted in n_bins_sparse. 1 = use any bin with a point.

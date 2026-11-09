@@ -172,10 +172,17 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
     R_bin_hull_FixedAngle           = num(.data[[sprintf("%s_BinFixedAngle_RScript_Diameter_mm", s)]]),
     Python_bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
     R_bin_hull_MeanDistanceRadius      = num(.data[[sprintf("%s_BinMeanDistanceRadius_RScript_Diameter_mm", s)]]),
+    # the same binned hulls at the 50th percentile (P50 columns, DJ 2026-11-09)
+    Python_bin_hull_FixedAngleP50         = num(.data[[sprintf("%s_BinFixedAngleP50_pythonScript_Diameter_mm", s)]]),
+    R_bin_hull_FixedAngleP50              = num(.data[[sprintf("%s_BinFixedAngleP50_RScript_Diameter_mm", s)]]),
+    Python_bin_hull_MeanDistanceRadiusP50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_pythonScript_Diameter_mm", s)]]),
+    R_bin_hull_MeanDistanceRadiusP50      = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_RScript_Diameter_mm", s)]]),
     # each method's own gap flag, for the flagged-ring sensitivity row
     edge_true_hull                   = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", s)]]),
     edge_bin_hull_FixedAngle         = num(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]]),
     edge_bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]]),
+    edge_bin_hull_FixedAngleP50         = num(.data[[sprintf("%s_BinFixedAngleP50_MaxEdgeFrac", s)]]),
+    edge_bin_hull_MeanDistanceRadiusP50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_MaxEdgeFrac", s)]]),
     reading            = num(.data[[FIELD_COL[[s]]]])
   ))) %>%
   filter(!is.na(reading)) %>%
@@ -200,10 +207,13 @@ py_r_check <- function(py_col, r_col, label) {
 py_r_check("Python_true_hull",        "R_true_hull",        "true_hull")
 py_r_check("Python_bin_hull_FixedAngle",      "R_bin_hull_FixedAngle",      "bin_hull_FixedAngle")
 py_r_check("Python_bin_hull_MeanDistanceRadius", "R_bin_hull_MeanDistanceRadius", "bin_hull_MeanDistanceRadius")
+py_r_check("Python_bin_hull_FixedAngleP50",         "R_bin_hull_FixedAngleP50",         "bin_hull_FixedAngleP50")
+py_r_check("Python_bin_hull_MeanDistanceRadiusP50", "R_bin_hull_MeanDistanceRadiusP50", "bin_hull_MeanDistanceRadiusP50")
 py_r_check("Circle",                  "R_Circle",           "circle_fit")
 
 long <- acc %>%
-  pivot_longer(c(Python_true_hull, Python_bin_hull_FixedAngle, Python_bin_hull_MeanDistanceRadius, Circle),
+  pivot_longer(c(Python_true_hull, Python_bin_hull_FixedAngle, Python_bin_hull_FixedAngleP50,
+                 Python_bin_hull_MeanDistanceRadius, Python_bin_hull_MeanDistanceRadiusP50, Circle),
                names_to = "method", values_to = "est") %>%
   # Display names for CSV columns/plots: drop "Python_" (results are
   # Python-only now, see the cross-check above -- the prefix no longer
@@ -212,7 +222,9 @@ long <- acc %>%
   mutate(method = recode(method,
                           Python_true_hull        = "true_hull",
                           Python_bin_hull_FixedAngle      = "bin_hull_FixedAngle",
-                          Python_bin_hull_MeanDistanceRadius = "bin_hull_MeanDistanceRadius")) %>%
+                          Python_bin_hull_MeanDistanceRadius = "bin_hull_MeanDistanceRadius",
+                          Python_bin_hull_FixedAngleP50         = "bin_hull_FixedAngleP50",
+                          Python_bin_hull_MeanDistanceRadiusP50 = "bin_hull_MeanDistanceRadiusP50")) %>%
   filter(!is.na(est)) %>%
   mutate(err   = est - reading,
          pct   = 100 * err / reading,
@@ -221,6 +233,8 @@ long <- acc %>%
            method == "true_hull"                   ~ edge_true_hull >= FLAG_THRESHOLD,
            method == "bin_hull_FixedAngle"         ~ edge_bin_hull_FixedAngle >= FLAG_THRESHOLD,
            method == "bin_hull_MeanDistanceRadius" ~ edge_bin_hull_MeanDistanceRadius >= FLAG_THRESHOLD,
+           method == "bin_hull_FixedAngleP50"         ~ edge_bin_hull_FixedAngleP50 >= FLAG_THRESHOLD,
+           method == "bin_hull_MeanDistanceRadiusP50" ~ edge_bin_hull_MeanDistanceRadiusP50 >= FLAG_THRESHOLD,
            method == "Circle"                      ~ edge_true_hull >= FLAG_THRESHOLD),   # same ring as the true hull
          flag_drop = !is.na(flag_drop) & flag_drop,
          # x-axis label for the bar plots: tree tag, short site, and the
@@ -298,7 +312,7 @@ if (nrow(long) == 0) {
     labs(title = "Estimated Diameter vs. Field Reading",
          subtitle = sprintf("Dendrometer bands and %s -- dashed = 1:1", SRC_LABEL),
          x = "Field reading (mm)", y = "Estimated diameter (mm)",
-         caption = paste(c("Binned hull, fixed angle and Binned hull, mean-distance radius overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.",
+         caption = paste(c("At each percentile, Binned hull, fixed angle and Binned hull, mean-distance radius overlap almost exactly at this scale --\nsee hull_comparison_binwidth_agreement.png for the difference on its own axis.",
                            fs_cap), collapse = "\n")) +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, out_name("hull_comparison_vs_field_reading_scatter.png")), p_fig2a, width = 7.5, height = 6.8, dpi = 130)
@@ -316,7 +330,7 @@ if (nrow(long) == 0) {
   stat_true <- ba_stats("true_hull")
   stat_med2 <- ba_stats("bin_hull_FixedAngle")
   col_true  <- METHOD_COLORS[["Convex hull"]]
-  col_med2  <- METHOD_COLORS[["Binned hull, fixed angle"]]
+  col_med2  <- METHOD_COLORS[["Binned hull, fixed angle, 90th pct"]]
 
   ba_data <- long %>% mutate(method_label = relabel_method(method), mean_est = (est + reading) / 2)
   p_fig2b <- ggplot(ba_data, aes(mean_est, err, colour = method_label, shape = method_label)) +
@@ -331,7 +345,7 @@ if (nrow(long) == 0) {
               show.legend = FALSE) +
     scale_colour_method() + scale_shape_method() +
     labs(title = "Agreement with Field Reading (Bland-Altman)",
-         subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Binned hull, fixed angle",
+         subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement (Convex hull & Binned hull, fixed angle, 90th pct",
                            if (HAS_SENS) paste0("; ", EXCL_LABEL), ")"),
          x = "Mean of estimate and reading (mm)", y = "Estimate − reading (mm)") +
     theme_minimal(base_size = 12)
@@ -430,17 +444,24 @@ if (nrow(long) == 0) {
   # ---- FIG Q3: bin-width agreement -- the two binned-hull variants overlap
   # almost exactly in FIG 2a (a legend entry with no visible points reads
   # like a rendering bug); this figure shows why, on its own axis.
-  q3_data <- long %>% filter(method %in% c("bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius")) %>%
-    select(tree, site, reading, method, est) %>%
-    pivot_wider(names_from = method, values_from = est) %>%
-    mutate(diff_mm = bin_hull_FixedAngle - bin_hull_MeanDistanceRadius)
+  # one point per tree-site and percentile (90th and 50th)
+  q3_data <- long %>%
+    filter(method %in% c("bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius",
+                         "bin_hull_FixedAngleP50", "bin_hull_MeanDistanceRadiusP50")) %>%
+    mutate(percentile = if_else(grepl("P50$", method), "50th pct", "90th pct"),
+           width      = if_else(grepl("FixedAngle", method), "angle", "dist")) %>%
+    select(tree, site, reading, percentile, width, est) %>%
+    pivot_wider(names_from = width, values_from = est) %>%
+    mutate(diff_mm = angle - dist,
+           method_label = relabel_method(if_else(percentile == "50th pct", "bin_hull_FixedAngleP50", "bin_hull_FixedAngle")))
 
-  p_q3 <- ggplot(q3_data, aes(reading, diff_mm)) +
+  p_q3 <- ggplot(q3_data, aes(reading, diff_mm, colour = method_label, shape = method_label)) +
     geom_hline(yintercept = 0, colour = "grey40") +
-    geom_point(size = 3, colour = col_med2) +
+    geom_point(size = 3) +
+    scale_colour_method() + scale_shape_method() +
     labs(title = "Bin-Width Agreement: Binned Hull, Fixed Angle vs. Mean-Distance Radius",
-         subtitle = "(2° estimate − 10mm estimate) per tree -- the two bin widths are\nindistinguishable at the scale of the measurement",
-         x = "Field reading (mm)", y = "2° estimate − 10mm estimate (mm)") +
+         subtitle = "(2° estimate − 10mm estimate) per tree, at each percentile -- the two bin widths are\nindistinguishable at the scale of the measurement",
+         x = "Field reading (mm)", y = "2° estimate − 10mm estimate (mm)", colour = "Percentile", shape = "Percentile") +
     theme_minimal(base_size = 12)
   ggsave(file.path(plotdir, out_name("hull_comparison_binwidth_agreement.png")), p_q3, width = 7.5, height = 5.2, dpi = 130)
 
@@ -480,6 +501,11 @@ pairs_2deg <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinFixedAngle")) %>
   filter(!is.na(true_py), !is.na(med_py)) %>% drop_shared()
 pairs_10mm <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinMeanDistanceRadius")) %>%
   filter(!is.na(true_py), !is.na(med_py)) %>% drop_shared()
+# the same two binned hulls at the 50th percentile (DJ, 2026-11-09)
+pairs_2deg_p50 <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinFixedAngleP50")) %>%
+  filter(!is.na(true_py), !is.na(med_py)) %>% drop_shared()
+pairs_10mm_p50 <- bind_rows(lapply(ALL_SITES, site_pair, stem = "BinMeanDistanceRadiusP50")) %>%
+  filter(!is.na(true_py), !is.na(med_py)) %>% drop_shared()
 
 # Python vs R cross-check (console only -- not written anywhere): confirms
 # the two independent implementations still agree before we drop R from the
@@ -493,6 +519,8 @@ pair_check <- function(df, py_col, r_col, label) {
 pair_check(pairs_2deg, "true_py", "true_r", "true_hull")
 pair_check(pairs_2deg, "med_py",  "med_r",  "bin_hull_FixedAngle")
 pair_check(pairs_10mm, "med_py",  "med_r",  "bin_hull_MeanDistanceRadius")
+pair_check(pairs_2deg_p50, "med_py", "med_r", "bin_hull_FixedAngleP50")
+pair_check(pairs_10mm_p50, "med_py", "med_r", "bin_hull_MeanDistanceRadiusP50")
 
 # ITSMe: the Python port (dab_itsme_concave_hull.py) against the R package run
 # (dab_itsme_concave_hull.R). Both are written to the sheet in tenths of a mm,
@@ -521,7 +549,8 @@ to_agreement <- function(df, variant) {
                     true_flagged = !is.na(true_edge) & true_edge >= FLAG_THRESHOLD,
                     bin_flagged  = !is.na(bin_edge)  & bin_edge  >= FLAG_THRESHOLD)
 }
-agreement <- bind_rows(to_agreement(pairs_2deg, "FixedAngle"), to_agreement(pairs_10mm, "MeanDistanceRadius"))
+agreement <- bind_rows(to_agreement(pairs_2deg, "FixedAngle"), to_agreement(pairs_10mm, "MeanDistanceRadius"),
+                       to_agreement(pairs_2deg_p50, "FixedAngleP50"), to_agreement(pairs_10mm_p50, "MeanDistanceRadiusP50"))
 
 if (nrow(agreement) == 0) {
   cat("\n[Part 2 skipped] need both a true-hull and a binned-hull value for at least one site/variant.\n")
@@ -549,9 +578,11 @@ if (nrow(agreement) == 0) {
         row.names = FALSE)
 
   lim2 <- range(c(agreement$true_est, agreement$bin_est), na.rm = TRUE)
-  p3 <- ggplot(agreement, aes(true_est, bin_est, colour = variant)) +
+  p3 <- ggplot(agreement %>% mutate(method_label = relabel_method(paste0("bin_hull_", variant))),
+               aes(true_est, bin_est, colour = method_label, shape = method_label)) +
     geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
     geom_point(size = 3, alpha = 0.85) +
+    scale_colour_method() + scale_shape_method() +
     coord_equal(xlim = lim2, ylim = lim2) +
     labs(title = "Hull Method Comparison -- True Hull vs. Binned-Polygon Hull (paired, per tree/site)",
          subtitle = "dashed = 1:1",

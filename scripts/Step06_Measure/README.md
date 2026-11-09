@@ -11,7 +11,7 @@ The methods, and the sheet column each one writes:
 - bin_mean_distance_radius.py / .R: the same, but each wedge spans a fixed ~10 mm of bark. <Site>_BinMeanDistanceRadius_{pythonScript,RScript}_Diameter_mm
 - circle_fit.py / .R: least-squares (Kasa) circle fit. The circle passes through the middle of the bark's bumps rather than wrapping them, so on fluted trunks it tends to read below the hulls. <Site>_CircleFit_{pythonScript,RScript}_Diameter_mm. The circle RMS and coverage go to the CSV only.
 
-The binned scripts take the 90th percentile radius in each wedge, not the median, since the median cuts inside the bark. PERCENTILE and MIN_POINTS_PER_BIN are set in CONFIG.
+The binned scripts take one percentile of the radius in each wedge. Both the 50th and the 90th are reported. The 50th, the median, is the default and writes the P50 columns, <Site>_BinFixedAngleP50_* and <Site>_BinMeanDistanceRadiusP50_*. For the 90th, set PERCENTILE to 90 and take P50 out of OUTPUT_COL and FLAG_COL. That writes the columns without P50. Run the binned scripts once at each percentile for every site. PERCENTILE and MIN_POINTS_PER_BIN are set in CONFIG.
 
 Steps:
 1. In each script's CONFIG, set SITE_LABEL and the site prefix on OUTPUT_COL and FLAG_COL for the site you are running (circle_fit has no FLAG_COL, since analysis uses the DendroTape flag for it). For dab_itsme_concave_hull.R and .py, also set HEIGHT_COL to that site's Y_value column.

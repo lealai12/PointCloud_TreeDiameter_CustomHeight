@@ -81,7 +81,10 @@ demo <- bind_rows(lapply(sites, function(s) {
               height_m = .data[[if (s %in% names(HEIGHT_COL)) HEIGHT_COL[[s]] else sprintf("Y_value_%s", s)]],
               diameter_mm = .data[[sprintf(SITE_COLUMN_PATTERN, s)]],
               field_reading_mm = field,
-              flagged = suppressWarnings(as.numeric(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]])) >= FLAG_THRESHOLD)
+              flagged = suppressWarnings(as.numeric(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]])) >= FLAG_THRESHOLD,
+              # the same method at the 50th percentile (DJ, 2026-11-09)
+              diameter_p50_mm = suppressWarnings(as.numeric(.data[[sprintf("%s_BinFixedAngleP50_pythonScript_Diameter_mm", s)]])),
+              flagged_p50 = suppressWarnings(as.numeric(.data[[sprintf("%s_BinFixedAngleP50_MaxEdgeFrac", s)]])) >= FLAG_THRESHOLD)
 })) %>%
   filter(!is.na(diameter_mm)) %>%
   arrange(diameter_mm) %>%
@@ -93,12 +96,18 @@ cat("\n")
 print(as.data.frame(demo), row.names = FALSE)
 
 # --------------------------------------------------------------------- figure
-p <- ggplot(demo, aes(tree_id, diameter_mm, colour = site)) +
-  geom_point(size = 3) +
+# filled = 90th percentile, open = 50th percentile, same colour per site
+demo_long <- bind_rows(demo %>% transmute(tree_id, site, est = diameter_mm,     percentile = "90th pct"),
+                       demo %>% transmute(tree_id, site, est = diameter_p50_mm, percentile = "50th pct")) %>%
+  filter(!is.na(est)) %>%
+  mutate(percentile = factor(percentile, levels = c("90th pct", "50th pct")))
+p <- ggplot(demo_long, aes(tree_id, est, colour = site, shape = percentile)) +
+  geom_point(size = 3, stroke = 1) +
   scale_colour_manual(values = c(LowerFlag = "#0072B2", Dendrometer = "#009E73", TopFlag = "#E69F00",
                                  ForestGeoPaint = "#CC3311", DendroPaint = "#56B4E9"),
                        name = "Site") +
-  labs(title = "Binned hull, fixed angle -- diameter at every processed site",
+  scale_shape_manual(values = c("90th pct" = 16, "50th pct" = 1), name = "Percentile") +
+  labs(title = "Binned hull, fixed angle -- diameter at every processed site, 90th and 50th percentile",
        subtitle = "Applied to every processed tree/site, not just the field-validated subset used to check it\n(first pass: 2° and 10mm arc-length bins scored virtually identically here -- a result specific to this dataset)",
        x = "Tree tag", y = "Binned-hull equivalent diameter (mm)") +
   theme_minimal(base_size = 11) +

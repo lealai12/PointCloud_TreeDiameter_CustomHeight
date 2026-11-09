@@ -27,35 +27,48 @@ METHOD_LABELS <- c(
   R                        = "ITSMe concave hull",
   true_hull                = "Convex hull",
   Python_true_hull         = "Convex hull",
-  bin_hull_FixedAngle     = "Binned hull, fixed angle",
-  Python_bin_hull_FixedAngle       = "Binned hull, fixed angle",
-  bin_hull_MeanDistanceRadius         = "Binned hull, mean-distance radius",
-  Python_bin_hull_MeanDistanceRadius  = "Binned hull, mean-distance radius",
+  bin_hull_FixedAngle     = "Binned hull, fixed angle, 90th pct",
+  Python_bin_hull_FixedAngle       = "Binned hull, fixed angle, 90th pct",
+  bin_hull_MeanDistanceRadius         = "Binned hull, mean-distance radius, 90th pct",
+  Python_bin_hull_MeanDistanceRadius  = "Binned hull, mean-distance radius, 90th pct",
+  # the same two binned hulls at the 50th percentile (the bin's median, the
+  # first-pass method), shown beside the 90th (DJ, 2026-11-09)
+  bin_hull_FixedAngleP50              = "Binned hull, fixed angle, 50th pct",
+  Python_bin_hull_FixedAngleP50       = "Binned hull, fixed angle, 50th pct",
+  bin_hull_MeanDistanceRadiusP50      = "Binned hull, mean-distance radius, 50th pct",
+  Python_bin_hull_MeanDistanceRadiusP50 = "Binned hull, mean-distance radius, 50th pct",
   Circle                   = "Circle fit (least squares)"   # circle_fit.py / .R (Step 6)
 )
 
 # canonical legend/plot order -- identical across every figure
-METHOD_ORDER <- c("ForestScanner (in-app)", "Convex hull", "Binned hull, fixed angle",
-                   "Binned hull, mean-distance radius", "ITSMe concave hull",
-                   "Circle fit (least squares)")
+METHOD_ORDER <- c("ForestScanner (in-app)", "Convex hull",
+                   "Binned hull, fixed angle, 90th pct", "Binned hull, fixed angle, 50th pct",
+                   "Binned hull, mean-distance radius, 90th pct", "Binned hull, mean-distance radius, 50th pct",
+                   "ITSMe concave hull", "Circle fit (least squares)")
 
-# Okabe-Ito colourblind-safe palette, one fixed colour per method
+# Okabe-Ito colourblind-safe palette, one fixed colour per method. Each 50th
+# percentile hull is a darker shade of its 90th partner's colour.
 METHOD_COLORS <- c(
   "ForestScanner (in-app)" = "#E69F00",
   "Convex hull"            = "#0072B2",
-  "Binned hull, fixed angle"        = "#009E73",
-  "Binned hull, mean-distance radius"     = "#CC79A7",
+  "Binned hull, fixed angle, 90th pct"          = "#009E73",
+  "Binned hull, fixed angle, 50th pct"          = "#00543D",
+  "Binned hull, mean-distance radius, 90th pct" = "#CC79A7",
+  "Binned hull, mean-distance radius, 50th pct" = "#882255",
   "ITSMe concave hull"     = "#D55E00",
   "Circle fit (least squares)" = "#000000"
 )
 
 # one shape per method too, so overlapping points in scatters are still
-# separable without relying on colour/hue alone
+# separable without relying on colour/hue alone. Each 50th percentile hull is
+# the open version of its 90th partner's shape.
 METHOD_SHAPES <- c(
   "ForestScanner (in-app)" = 15,  # filled square
   "Convex hull"            = 16,  # filled circle
-  "Binned hull, fixed angle"        = 17,  # filled triangle
-  "Binned hull, mean-distance radius"     = 18,  # filled diamond
+  "Binned hull, fixed angle, 90th pct"          = 17,  # filled triangle
+  "Binned hull, fixed angle, 50th pct"          = 2,   # open triangle
+  "Binned hull, mean-distance radius, 90th pct" = 18,  # filled diamond
+  "Binned hull, mean-distance radius, 50th pct" = 5,   # open diamond
   "ITSMe concave hull"     = 8,   # star
   "Circle fit (least squares)" = 4   # x
 )

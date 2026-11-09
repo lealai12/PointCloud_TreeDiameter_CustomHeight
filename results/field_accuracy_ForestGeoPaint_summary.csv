@@ -3,33 +3,69 @@
 "all trees","ForestScanner",10,-345.22954665,345.22954665,618.251248493757,22.5428919399885
 "all trees","Python",14,96.2860381071429,96.2860381071429,142.888932078355,8.90882291239701
 "all trees","R",14,59.2003238214286,60.1431680357143,116.531939202128,5.88089600295119
+"all trees","bin_hull_FixedAngle",14,67.2860381071429,68.5717394642857,122.339107236898,6.33376304616873
+"all trees","bin_hull_FixedAngleP50",14,37.0717523928572,48.4099121214286,105.630381070605,4.76797865811914
+"all trees","bin_hull_MeanDistanceRadius",14,68.42889525,69.7145966071429,123.469539744106,6.38151975490943
+"all trees","bin_hull_MeanDistanceRadiusP50",14,38.8574666785714,49.9099121214286,107.107726361259,4.87181662486102
 "excl. 3853 Red","Circle",13,-22.1534974230769,24.8260592076923,31.5330109261555,2.64001060969357
 "excl. 3853 Red","ForestScanner",10,-345.22954665,345.22954665,618.251248493757,22.5428919399885
 "excl. 3853 Red","Python",13,71.3849641153846,71.3849641153846,91.7527852215681,6.2530939931613
 "excl. 3853 Red","R",13,33.1234256538462,34.1387963461539,49.2657315436615,3.16566463192691
+"excl. 3853 Red","bin_hull_FixedAngle",13,41.6926564230769,43.0772578846154,61.7289361353936,3.63904893159115
+"excl. 3853 Red","bin_hull_FixedAngleP50",13,10.8465025769231,23.0568284384615,32.0154814374084,2.12782555672714
+"excl. 3853 Red","bin_hull_MeanDistanceRadius",13,42.7695795,44.1541809615385,63.1373237321132,3.67456960002895
+"excl. 3853 Red","bin_hull_MeanDistanceRadiusP50",13,12.5388102692308,24.4414438230769,34.4717394262176,2.21578660944781
 "excl. flagged rings","Circle",13,10.1541948846154,47.7491361307692,103.063199473728,5.0522824406653
 "excl. flagged rings","ForestScanner",10,-345.22954665,345.22954665,618.251248493757,22.5428919399885
 "excl. flagged rings","Python",13,94.3849641153846,94.3849641153846,144.435361307109,8.71437290813033
 "excl. flagged rings","R",13,59.4003487307693,60.415719423077,119.907701670563,5.92175596886092
+"excl. flagged rings","bin_hull_FixedAngle",11,59.0913212272727,60.7276684090909,124.989454185433,6.3279826134848
+"excl. flagged rings","bin_hull_FixedAngleP50",12,39.6670444583333,52.894897475,113.754078194915,5.30310722473636
+"excl. flagged rings","bin_hull_MeanDistanceRadius",12,59.1670444583333,60.667029375,121.395421874378,6.04710017735725
+"excl. flagged rings","bin_hull_MeanDistanceRadiusP50",12,41.5003777916667,54.394897475,115.304997957554,5.40750505644008
 "by group: Band (dendrometer)","Circle",6,-22.4992444166666,22.6231282833333,25.4862711895952,3.19941786392859
 "by group: Band (dendrometer)","ForestScanner",6,-80.9992444166666,80.9992444166666,148.060557791341,8.03666264803879
 "by group: Band (dendrometer)","Python",6,32.66742225,32.66742225,39.521000212751,4.75085987644901
 "by group: Band (dendrometer)","R",6,17.2507555833334,18.6173920833334,23.3426289540459,2.72448637216508
+"by group: Band (dendrometer)","bin_hull_FixedAngle",6,12.0007555833334,15.0007254166667,17.0977592747196,2.42350279521005
+"by group: Band (dendrometer)","bin_hull_FixedAngleP50",6,-10.9992444166666,13.4564616166666,16.33954136289,2.14370541509653
+"by group: Band (dendrometer)","bin_hull_MeanDistanceRadius",6,12.0007555833334,15.0007254166667,17.5412914038922,2.35261024167959
+"by group: Band (dendrometer)","bin_hull_MeanDistanceRadiusP50",6,-10.4992444166666,12.9564616166666,15.853026251043,2.09174864160682
 "by group: DAB (above buttress)","Circle",7,31.1428571428571,76.2857142857143,140.288478296891,7.0814555113777
 "by group: DAB (above buttress)","ForestScanner",4,-741.575,741.575,960.574631405598,44.302235877913
 "by group: DAB (above buttress)","Python",7,160.571428571429,160.571428571429,198.453305051123,12.852623073552
 "by group: DAB (above buttress)","R",7,101.4,102.114285714286,163.272856636631,8.93225776853639
+"by group: DAB (above buttress)","bin_hull_FixedAngle",7,122.285714285714,122.285714285714,172.206686447254,10.1438094107289
+"by group: DAB (above buttress)","bin_hull_FixedAngleP50",7,84.4285714285714,84.4285714285714,148.598692553372,7.50716900125758
+"by group: DAB (above buttress)","bin_hull_MeanDistanceRadius",7,124.571428571429,124.571428571429,173.774895441529,10.3000878740935
+"by group: DAB (above buttress)","bin_hull_MeanDistanceRadiusP50",7,87.7142857142857,87.7142857142857,150.737235896491,7.72749155691618
 "by group: DBH (low paint mark)","Circle",1,-12,12,12,2.67857142857143
 "by group: DBH (low paint mark)","Python",1,28,28,28,6.25
 "by group: DBH (low paint mark)","R",1,15.5,15.5,15.5,3.45982142857143
+"by group: DBH (low paint mark)","bin_hull_FixedAngle",1,14,14,14,3.125
+"by group: DBH (low paint mark)","bin_hull_FixedAngleP50",1,-6,6,6,1.33928571428571
+"by group: DBH (low paint mark)","bin_hull_MeanDistanceRadius",1,14,14,14,3.125
+"by group: DBH (low paint mark)","bin_hull_MeanDistanceRadiusP50",1,-7,7,7,1.5625
 "by group, excl. flagged rings: Band (dendrometer)","Circle",6,-22.4992444166666,22.6231282833333,25.4862711895952,3.19941786392859
 "by group, excl. flagged rings: Band (dendrometer)","ForestScanner",6,-80.9992444166666,80.9992444166666,148.060557791341,8.03666264803879
 "by group, excl. flagged rings: Band (dendrometer)","Python",6,32.66742225,32.66742225,39.521000212751,4.75085987644901
 "by group, excl. flagged rings: Band (dendrometer)","R",6,17.2507555833334,18.6173920833334,23.3426289540459,2.72448637216508
+"by group, excl. flagged rings: Band (dendrometer)","bin_hull_FixedAngle",6,12.0007555833334,15.0007254166667,17.0977592747196,2.42350279521005
+"by group, excl. flagged rings: Band (dendrometer)","bin_hull_FixedAngleP50",6,-10.9992444166666,13.4564616166666,16.33954136289,2.14370541509653
+"by group, excl. flagged rings: Band (dendrometer)","bin_hull_MeanDistanceRadius",6,12.0007555833334,15.0007254166667,17.5412914038922,2.35261024167959
+"by group, excl. flagged rings: Band (dendrometer)","bin_hull_MeanDistanceRadiusP50",6,-10.4992444166666,12.9564616166666,15.853026251043,2.09174864160682
 "by group, excl. flagged rings: DAB (above buttress)","Circle",6,46.5,78.8333333333333,149.468502813581,7.30076551941765
 "by group, excl. flagged rings: DAB (above buttress)","ForestScanner",4,-741.575,741.575,960.574631405598,44.302235877913
 "by group, excl. flagged rings: DAB (above buttress)","Python",6,167.166666666667,167.166666666667,208.58451524502,13.0886147578334
 "by group, excl. flagged rings: DAB (above buttress)","R",6,108.866666666667,109.7,174.834502697074,9.52934798893833
+"by group, excl. flagged rings: DAB (above buttress)","bin_hull_FixedAngle",4,141,141,206.092212371065,12.9854479942681
+"by group, excl. flagged rings: DAB (above buttress)","bin_hull_FixedAngleP50",5,109.6,109.6,175.295179625682,9.88715369839428
+"by group, excl. flagged rings: DAB (above buttress)","bin_hull_MeanDistanceRadius",5,124.8,124.8,186.975934280324,11.0649081356419
+"by group, excl. flagged rings: DAB (above buttress)","bin_hull_MeanDistanceRadiusP50",5,113.6,113.6,177.756012556538,10.155413765528
 "by group, excl. flagged rings: DBH (low paint mark)","Circle",1,-12,12,12,2.67857142857143
 "by group, excl. flagged rings: DBH (low paint mark)","Python",1,28,28,28,6.25
 "by group, excl. flagged rings: DBH (low paint mark)","R",1,15.5,15.5,15.5,3.45982142857143
+"by group, excl. flagged rings: DBH (low paint mark)","bin_hull_FixedAngle",1,14,14,14,3.125
+"by group, excl. flagged rings: DBH (low paint mark)","bin_hull_FixedAngleP50",1,-6,6,6,1.33928571428571
+"by group, excl. flagged rings: DBH (low paint mark)","bin_hull_MeanDistanceRadius",1,14,14,14,3.125
+"by group, excl. flagged rings: DBH (low paint mark)","bin_hull_MeanDistanceRadiusP50",1,-7,7,7,1.5625

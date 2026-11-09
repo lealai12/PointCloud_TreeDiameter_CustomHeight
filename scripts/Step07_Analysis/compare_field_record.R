@@ -180,7 +180,7 @@ pairs <- pairs_all[!diff_height, ] %>%
          years = as.numeric(date_2 - date_1) / 365.25)
 
 # ------------------------------------------------------------------ scan side
-# same sheet, sites and filters as validate_field_accuracy.R, all six methods
+# same sheet, sites and filters as validate_field_accuracy.R, every method
 FIELD_COL <- setNames(c("Dendrometer_FieldDiameter", sprintf("%s_FieldDiameter_mm", PAINT_SOURCE)),
                       c("Dendrometer", PAINT_SOURCE))
 raw <- read_excel(sheet) %>% mutate(Tree_Tag = as.character(Tree_Tag)) %>%
@@ -191,11 +191,14 @@ scan <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>% transmute(
     Python_true_hull            = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", s)]]),
     bin_hull_FixedAngle         = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", s)]]),
     bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
+    bin_hull_FixedAngleP50         = num(.data[[sprintf("%s_BinFixedAngleP50_pythonScript_Diameter_mm", s)]]),          # 50th percentile (DJ, 2026-11-09)
+    bin_hull_MeanDistanceRadiusP50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_pythonScript_Diameter_mm", s)]]),
     R                           = num(.data[[sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", s)]]),
     Circle                      = num(.data[[sprintf("%s_CircleFit_pythonScript_Diameter_mm", s)]])))) %>%
   filter(!is.na(reading), !is.na(Python_true_hull)) %>%
   filter(!paste(tag, site) %in% EXCLUDE_SITES) %>%
-  pivot_longer(c(ForestScanner, Python_true_hull, bin_hull_FixedAngle, bin_hull_MeanDistanceRadius, R, Circle),
+  pivot_longer(c(ForestScanner, Python_true_hull, bin_hull_FixedAngle, bin_hull_FixedAngleP50,
+                 bin_hull_MeanDistanceRadius, bin_hull_MeanDistanceRadiusP50, R, Circle),
                names_to = "method", values_to = "est") %>%
   filter(!is.na(est)) %>%
   mutate(comparison = as.character(relabel_method(method)), diff_mm = est - reading,
@@ -241,7 +244,7 @@ print(as.data.frame(summary_tbl %>% mutate(across(where(is.double), ~ round(.x, 
 # ------------------------------------------------------------------ per tree
 # For each validation tree-site: every retained census value (taped and
 # reference) at the tree's current paint-mark height, over the whole record,
-# and its largest spread (max - min), next to the five cloud methods and the
+# and its largest spread (max - min), next to every cloud method and the
 # field reading. Growth over the record is included in the spread. The census
 # values are at the paint mark, so on a Dendrometer site they are the paint
 # mark's history, not the band's.

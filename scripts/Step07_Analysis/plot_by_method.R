@@ -8,7 +8,7 @@
 # read without the others on top of it. No new measurement, no new metric.
 # The grouped figures are unchanged, this only adds six files.
 #
-# All six methods, at every validation site of one paint source (the
+# Every method (the binned hulls at the 50th and 90th percentile), at every validation site of one paint source (the
 # Dendrometer bands plus that source's paint marks; first argument, see
 # CONFIG), one row per tree + site. The groups and EXCLUDE_SITES follow the other step 7
 # scripts. Open markers = flagged ring (MaxEdgeFrac >= FLAG_THRESHOLD), each
@@ -100,10 +100,15 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
     R                           = num(.data[[sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", s)]]),
     bin_hull_FixedAngle         = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", s)]]),
     bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
+    # the same binned hulls at the 50th percentile (DJ, 2026-11-09)
+    bin_hull_FixedAngleP50         = num(.data[[sprintf("%s_BinFixedAngleP50_pythonScript_Diameter_mm", s)]]),
+    bin_hull_MeanDistanceRadiusP50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_pythonScript_Diameter_mm", s)]]),
     # each method's own gap flag (ITSMe uses DendroTape's, same ring points)
     edge_dt = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", s)]]),
     edge_fa = num(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]]),
-    edge_md = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]])
+    edge_md = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]]),
+    edge_fa50 = num(.data[[sprintf("%s_BinFixedAngleP50_MaxEdgeFrac", s)]]),
+    edge_md50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_MaxEdgeFrac", s)]])
   ))) %>%
   filter(!is.na(reading)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
@@ -118,7 +123,8 @@ if (nrow(acc) == 0) {
 }
 
 long <- acc %>%
-  pivot_longer(c(ForestScanner, Python_true_hull, R, bin_hull_FixedAngle, bin_hull_MeanDistanceRadius, Circle),
+  pivot_longer(c(ForestScanner, Python_true_hull, R, bin_hull_FixedAngle, bin_hull_FixedAngleP50,
+                 bin_hull_MeanDistanceRadius, bin_hull_MeanDistanceRadiusP50, Circle),
                names_to = "method", values_to = "est") %>%
   filter(!is.na(est)) %>%
   mutate(err  = est - reading,
@@ -126,7 +132,9 @@ long <- acc %>%
          # ForestScanner doesn't use the ring, so it is never flagged
          edge = case_when(method %in% c("Python_true_hull", "R", "Circle") ~ edge_dt,
                           method == "bin_hull_FixedAngle"         ~ edge_fa,
-                          method == "bin_hull_MeanDistanceRadius" ~ edge_md),
+                          method == "bin_hull_MeanDistanceRadius" ~ edge_md,
+                          method == "bin_hull_FixedAngleP50"         ~ edge_fa50,
+                          method == "bin_hull_MeanDistanceRadiusP50" ~ edge_md50),
          flagged      = !is.na(edge) & edge >= FLAG_THRESHOLD,
          method_label = relabel_method(method),
          # x-axis label for the per-tree plots, e.g. "3031 Dendro (724)"
@@ -158,7 +166,7 @@ p_scatter <- ggplot(long %>% mutate(est_plot = pin_to(est, lim)),
        x = "Field reading (mm)", y = "Estimated diameter (mm)",
        caption = fs_off_caption(fs$tree_label, fs$est, lim, "%.0f mm", "estimates", width = 130)) +
   theme_minimal(base_size = 11)
-save_plot(p_scatter, "by_method_scatter.png", 11, 8)
+save_plot(p_scatter, "by_method_scatter.png", 11, 11)
 
 # ---- per tree + site plots: shared tree order, two average entries per panel
 tree_order  <- long %>% distinct(tree_label, reading) %>% arrange(reading) %>% pull(tree_label)
@@ -193,7 +201,7 @@ p_error <- ggplot(per_tree("pct"), aes(tree_label, value, fill = method_label)) 
        x = "Tree and site (field reading, mm)", y = "Error  (est - reading) / reading  [%]") +
   theme_minimal(base_size = 11) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-save_plot(p_error, "by_method_error.png", 10, 13)
+save_plot(p_error, "by_method_error.png", 10, 17)
 
 # signed error in mm, points on a pseudo-log axis (see compare_hull_methods.R
 # FIG 3b for why points, not bars)
@@ -211,7 +219,7 @@ p_error_mm <- ggplot(per_tree("err"), aes(tree_label, value, colour = method_lab
        x = "Tree and site (field reading, mm)", y = "Error  (est - reading)  [mm, pseudo-log]") +
   theme_minimal(base_size = 11) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-save_plot(p_error_mm, "by_method_error_mm.png", 10, 13)
+save_plot(p_error_mm, "by_method_error_mm.png", 10, 17)
 
 # ---- signed % error, by group
 p_box <- ggplot(long, aes(size, pct, fill = size)) +
@@ -222,16 +230,19 @@ p_box <- ggplot(long, aes(size, pct, fill = size)) +
   FLAG_SHAPE +
   scale_fill_manual(values = GROUP_FILLS, name = "Measurement type") +
   labs(title = "Signed Percent Error vs. Field Reading, by Method and Measurement Type",
-       subtitle = paste0(SITES_NOTE, ", ", flag_note, ". The y axis differs per panel."),
+       subtitle = paste0(SITES_NOTE, ", ", flag_note, ".\nThe y axis differs per panel."),
        x = NULL, y = "Error  (est - reading) / reading  [%]") +
-  theme_minimal(base_size = 11)
-save_plot(p_box, "by_method_boxplot.png", 11, 8)
+  # group names on two lines, so the three don't run into each other
+  scale_x_discrete(labels = scales::label_wrap(10)) +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.x = element_text(size = 8))
+save_plot(p_box, "by_method_boxplot.png", 11, 11)
 
 # same box plot, signed error in mm (DJ, 2026-09-28)
 p_box_mm <- p_box + aes(y = err) +
   labs(title = "Signed Error vs. Field Reading (mm), by Method and Measurement Type",
        y = "Error  (est - reading)  [mm]")
-save_plot(p_box_mm, "by_method_boxplot_mm.png", 11, 8)
+save_plot(p_box_mm, "by_method_boxplot_mm.png", 11, 11)
 
 # ---- Bland-Altman: each panel gets its own bias and 95% limits, computed
 # without the EXCLUDE_SENSITIVITY tree + site pairs (every site when none is in this run), like the
@@ -252,9 +263,9 @@ p_ba <- ggplot(ba_data, aes(mean_est, err, colour = method_label, shape = flagge
   scale_colour_method(guide = "none") + FLAG_SHAPE +
   labs(title = "Agreement with Field Reading (Bland-Altman), by Method",
        subtitle = paste0("dashed = mean bias, dotted = 95% limits of agreement",
-                         if (HAS_SENS) paste0(" (", EXCL_LABEL, ")"), ", ", flag_note, ". The y axis differs per panel."),
+                         if (HAS_SENS) paste0(" (", EXCL_LABEL, ")"), ",\n", flag_note, ". The y axis differs per panel."),
        x = "Mean of estimate and reading (mm)", y = "Estimate - reading (mm)") +
   theme_minimal(base_size = 11)
-save_plot(p_ba, "by_method_bland_altman.png", 11, 8)
+save_plot(p_ba, "by_method_bland_altman.png", 11, 11)
 
 cat(sprintf("\nWrote %s/by_method_%s_{scatter,error,error_mm,boxplot,boxplot_mm,bland_altman}.png\n", plotdir, PAINT_SOURCE))

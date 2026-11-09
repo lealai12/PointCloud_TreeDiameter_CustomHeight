@@ -12,12 +12,12 @@
 # Run once per paint source (first argument, see CONFIG).
 #
 # PART 1 -- fig noted vs. no fig noted, at the source's paint site on every tree
-# NOT in PAINT_DBH_TREES (the above-buttress paint marks). All six methods.
+# NOT in PAINT_DBH_TREES (the above-buttress paint marks). Every method.
 #
 # PART 2 -- the field_accuracy error chart without the fig paint sites:
 # every Dendrometer site, plus the source's paint site on every tree not in
 # FIG_TREES. Signed % bars per tree + site with the mm error printed on each,
-# the five cloud methods. A Dendrometer site stays in even on a fig tree
+# every cloud method. A Dendrometer site stays in even on a fig tree
 # (3853), since the fig note there is about the band.
 #
 # Both parts drop EXCLUDE_SITES. No row is dropped for having a large error.
@@ -107,10 +107,15 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
     R                           = num(.data[[sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", s)]]),
     bin_hull_FixedAngle         = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", s)]]),
     bin_hull_MeanDistanceRadius = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
+    # the same binned hulls at the 50th percentile (DJ, 2026-11-09)
+    bin_hull_FixedAngleP50         = num(.data[[sprintf("%s_BinFixedAngleP50_pythonScript_Diameter_mm", s)]]),
+    bin_hull_MeanDistanceRadiusP50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_pythonScript_Diameter_mm", s)]]),
     # each method's own gap flag (ITSMe uses DendroTape's, same ring points)
     edge_dt = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", s)]]),
     edge_fa = num(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]]),
-    edge_md = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]])
+    edge_md = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]]),
+    edge_fa50 = num(.data[[sprintf("%s_BinFixedAngleP50_MaxEdgeFrac", s)]]),
+    edge_md50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_MaxEdgeFrac", s)]])
   ))) %>%
   # a site counts only if it has a field reading AND a cloud slice, same as
   # validate_field_accuracy.R (a sheet row with a reading but no slice is skipped)
@@ -133,7 +138,9 @@ to_long <- function(d, methods) {
            # ForestScanner doesn't use the ring, so it is never flagged
            edge = case_when(method %in% c("Python_true_hull", "R", "Circle") ~ edge_dt,
                             method == "bin_hull_FixedAngle"         ~ edge_fa,
-                            method == "bin_hull_MeanDistanceRadius" ~ edge_md),
+                            method == "bin_hull_MeanDistanceRadius" ~ edge_md,
+                            method == "bin_hull_FixedAngleP50"         ~ edge_fa50,
+                            method == "bin_hull_MeanDistanceRadiusP50" ~ edge_md50),
            flagged      = !is.na(edge) & edge >= FLAG_THRESHOLD,
            method_label = relabel_method(method))
 }
@@ -148,7 +155,7 @@ show <- function(tbl) {
                                      across(any_of(c("p_mm", "p_pct")), ~ round(.x, 3)))),
         row.names = FALSE)
 }
-# mm row on top, % row below, one panel per method
+# mm rows on top, % rows below, one panel per method, four methods per row
 two_row_plot <- function(d, group_col, fills, title, subtitle, label_col = "tree") {
   pd <- bind_rows(d %>% mutate(unit = "Error (mm)", value = err),
                   d %>% mutate(unit = "Error (%)",  value = pct)) %>%
@@ -159,7 +166,7 @@ two_row_plot <- function(d, group_col, fills, title, subtitle, label_col = "tree
     geom_point(aes(shape = flagged), size = 2.2, position = position_nudge(x = 0.32)) +
     geom_text(aes(label = .data[[label_col]]), size = 2.6, colour = "grey30", hjust = 0,
               position = position_nudge(x = 0.38)) +
-    facet_wrap(~ unit + method_label, nrow = 2, scales = "free_y",
+    facet_wrap(~ unit + method_label, ncol = 4, scales = "free_y",
                labeller = labeller(.multi_line = FALSE)) +
     scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 1), guide = "none") +
     scale_fill_manual(values = fills, name = NULL) +
@@ -170,14 +177,15 @@ two_row_plot <- function(d, group_col, fills, title, subtitle, label_col = "tree
 }
 
 # ===========================================================================
-# PART 1 -- fig noted vs. no fig noted, DAB paint sites, all six methods
+# PART 1 -- fig noted vs. no fig noted, DAB paint sites, every method
 # ===========================================================================
 acc <- acc_all %>% filter(site == PAINT_SOURCE, !tree %in% PAINT_DBH_TREES)
 
 if (nrow(acc) == 0) {
   cat("[Part 1 skipped] no DAB paint-site field readings in the sheet yet\n")
 } else {
-  long <- to_long(acc, c("ForestScanner", "Python_true_hull", "R", "bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius", "Circle"))
+  long <- to_long(acc, c("ForestScanner", "Python_true_hull", "R", "bin_hull_FixedAngle", "bin_hull_FixedAngleP50",
+                         "bin_hull_MeanDistanceRadius", "bin_hull_MeanDistanceRadiusP50", "Circle"))
   cat(sprintf("Part 1, fig notes: %d DAB paint sites (%d with a fig noted), %d rows.\n",
               nrow(acc), sum(acc$fig == "Fig noted"), nrow(long)))
 
@@ -221,9 +229,9 @@ if (nrow(acc) == 0) {
 
   p1 <- two_row_plot(long, "fig", c("Fig noted" = "#009E73", "No fig noted" = "#999999"),
     sprintf("Error vs. Field Reading at Buttressed Paint Marks (%s): Fig Noted vs. No Fig Noted", SRC_LABEL),
-    sprintf("n = %d DAB paint sites (%d with a fig in the BCI census notes). Top row mm, bottom row %%. Open markers = flagged ring (MaxEdgeFrac >= %.1f). The y axis differs per panel.",
+    sprintf("n = %d DAB paint sites (%d with a fig in the BCI census notes). Top two rows mm, bottom two rows %%.\nOpen markers = flagged ring (MaxEdgeFrac >= %.1f). The y axis differs per panel.",
             nrow(acc), sum(acc$fig == "Fig noted"), FLAG_THRESHOLD))
-  ggsave(file.path(plotdir, sprintf("fig_notes_%s_error.png", PAINT_SOURCE)), p1, width = 17, height = 7.5, dpi = 130)
+  ggsave(file.path(plotdir, sprintf("fig_notes_%s_error.png", PAINT_SOURCE)), p1, width = 14, height = 13, dpi = 130)
   cat(sprintf("\nWrote %s/fig_notes_%s_{pertree,summary}.csv and %s/fig_notes_%s_error.png\n", outdir, PAINT_SOURCE, plotdir, PAINT_SOURCE))
 }
 
@@ -235,7 +243,8 @@ if (nrow(acc) == 0) {
 # methods, with each bar's error in mm printed above it. (DJ, 2026-09-28)
 # ===========================================================================
 acc2  <- acc_all %>% filter(site == "Dendrometer" | !tree %in% FIG_TREES)
-long2 <- to_long(acc2, c("Python_true_hull", "bin_hull_FixedAngle", "bin_hull_MeanDistanceRadius", "R", "Circle")) %>%
+long2 <- to_long(acc2, c("Python_true_hull", "bin_hull_FixedAngle", "bin_hull_FixedAngleP50",
+                         "bin_hull_MeanDistanceRadius", "bin_hull_MeanDistanceRadiusP50", "R", "Circle")) %>%
   mutate(tree_label = sprintf("%s %s (%.0f)", tree, SITE_SHORT[site], reading))
 cat(sprintf("\nPart 2, without the fig paint sites: %d tree-sites, %d rows.\n", nrow(acc2), nrow(long2)))
 

@@ -10,7 +10,7 @@
 # side by side on one axis to compare the SHAPE of each method's error
 # distribution across the split -- that's what this is for. No new
 # measurement, no new metric: same errors those two scripts already compute,
-# just all six methods in one plot.
+# just every method in one plot.
 #
 # GROUPING: by measurement type, not a diameter threshold. The split that
 # actually matters here is WHY a tree is hard to measure. Band is the
@@ -104,10 +104,15 @@ acc <- bind_rows(lapply(names(FIELD_COL), function(s) raw %>%
     R                     = num(.data[[sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", s)]]),
     bin_hull_FixedAngle  = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", s)]]),
     bin_hull_MeanDistanceRadius      = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
+    # the same binned hulls at the 50th percentile (DJ, 2026-11-09)
+    bin_hull_FixedAngleP50         = num(.data[[sprintf("%s_BinFixedAngleP50_pythonScript_Diameter_mm", s)]]),
+    bin_hull_MeanDistanceRadiusP50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_pythonScript_Diameter_mm", s)]]),
     # each method's own gap flag (ITSMe uses DendroTape's, same ring points)
     edge_dt = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", s)]]),
     edge_fa = num(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]]),
-    edge_md = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]])
+    edge_md = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]]),
+    edge_fa50 = num(.data[[sprintf("%s_BinFixedAngleP50_MaxEdgeFrac", s)]]),
+    edge_md50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_MaxEdgeFrac", s)]])
   ))) %>%
   filter(!is.na(reading)) %>%
   filter(!paste(tree, site) %in% EXCLUDE_SITES) %>%
@@ -119,7 +124,8 @@ if (nrow(acc) == 0) {
 }
 
 long <- acc %>%
-  pivot_longer(c(ForestScanner, Python_true_hull, R, bin_hull_FixedAngle, bin_hull_MeanDistanceRadius, Circle),
+  pivot_longer(c(ForestScanner, Python_true_hull, R, bin_hull_FixedAngle, bin_hull_FixedAngleP50,
+                 bin_hull_MeanDistanceRadius, bin_hull_MeanDistanceRadiusP50, Circle),
                names_to = "method", values_to = "est") %>%
   filter(!is.na(est)) %>%
   mutate(err   = est - reading,
@@ -127,7 +133,9 @@ long <- acc %>%
          # ForestScanner doesn't use the ring, so it is never flagged
          edge  = case_when(method %in% c("Python_true_hull", "R", "Circle") ~ edge_dt,
                            method == "bin_hull_FixedAngle"         ~ edge_fa,
-                           method == "bin_hull_MeanDistanceRadius" ~ edge_md),
+                           method == "bin_hull_MeanDistanceRadius" ~ edge_md,
+                           method == "bin_hull_FixedAngleP50"         ~ edge_fa50,
+                           method == "bin_hull_MeanDistanceRadiusP50" ~ edge_md50),
          flagged = !is.na(edge) & edge >= FLAG_THRESHOLD,
          method_label = relabel_method(method))
 

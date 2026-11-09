@@ -9,18 +9,30 @@
 "7772","DendroPaint","No fig noted",1560,"Convex hull",1622,62,3.97,FALSE
 "4146","DendroPaint","No fig noted",1567,"Convex hull",1709,142,9.06,FALSE
 "6647","DendroPaint","No fig noted",1830,"Convex hull",1979,149,8.14,TRUE
-"5027","DendroPaint","Fig noted",1306,"Binned hull, fixed angle",1429,123,9.42,FALSE
-"3853","DendroPaint","Fig noted",1330,"Binned hull, fixed angle",1359,29,2.18,FALSE
-"1993","DendroPaint","Fig noted",2133,"Binned hull, fixed angle",2339,206,9.66,FALSE
-"7772","DendroPaint","No fig noted",1560,"Binned hull, fixed angle",1600,40,2.56,FALSE
-"4146","DendroPaint","No fig noted",1567,"Binned hull, fixed angle",1654,87,5.55,FALSE
-"6647","DendroPaint","No fig noted",1830,"Binned hull, fixed angle",1948,118,6.45,TRUE
-"5027","DendroPaint","Fig noted",1306,"Binned hull, mean-distance radius",1431,125,9.57,FALSE
-"3853","DendroPaint","Fig noted",1330,"Binned hull, mean-distance radius",1361,31,2.33,FALSE
-"1993","DendroPaint","Fig noted",2133,"Binned hull, mean-distance radius",2341,208,9.75,FALSE
-"7772","DendroPaint","No fig noted",1560,"Binned hull, mean-distance radius",1604,44,2.82,FALSE
-"4146","DendroPaint","No fig noted",1567,"Binned hull, mean-distance radius",1657,90,5.74,FALSE
-"6647","DendroPaint","No fig noted",1830,"Binned hull, mean-distance radius",1950,120,6.56,TRUE
+"5027","DendroPaint","Fig noted",1306,"Binned hull, fixed angle, 90th pct",1429,123,9.42,FALSE
+"3853","DendroPaint","Fig noted",1330,"Binned hull, fixed angle, 90th pct",1359,29,2.18,FALSE
+"1993","DendroPaint","Fig noted",2133,"Binned hull, fixed angle, 90th pct",2339,206,9.66,FALSE
+"7772","DendroPaint","No fig noted",1560,"Binned hull, fixed angle, 90th pct",1600,40,2.56,FALSE
+"4146","DendroPaint","No fig noted",1567,"Binned hull, fixed angle, 90th pct",1654,87,5.55,FALSE
+"6647","DendroPaint","No fig noted",1830,"Binned hull, fixed angle, 90th pct",1948,118,6.45,TRUE
+"5027","DendroPaint","Fig noted",1306,"Binned hull, fixed angle, 50th pct",1402,96,7.35,FALSE
+"3853","DendroPaint","Fig noted",1330,"Binned hull, fixed angle, 50th pct",1332,2,0.15,FALSE
+"1993","DendroPaint","Fig noted",2133,"Binned hull, fixed angle, 50th pct",2262,129,6.05,FALSE
+"7772","DendroPaint","No fig noted",1560,"Binned hull, fixed angle, 50th pct",1578,18,1.15,FALSE
+"4146","DendroPaint","No fig noted",1567,"Binned hull, fixed angle, 50th pct",1624,57,3.64,FALSE
+"6647","DendroPaint","No fig noted",1830,"Binned hull, fixed angle, 50th pct",1924,94,5.14,TRUE
+"5027","DendroPaint","Fig noted",1306,"Binned hull, mean-distance radius, 90th pct",1431,125,9.57,FALSE
+"3853","DendroPaint","Fig noted",1330,"Binned hull, mean-distance radius, 90th pct",1361,31,2.33,FALSE
+"1993","DendroPaint","Fig noted",2133,"Binned hull, mean-distance radius, 90th pct",2341,208,9.75,FALSE
+"7772","DendroPaint","No fig noted",1560,"Binned hull, mean-distance radius, 90th pct",1604,44,2.82,FALSE
+"4146","DendroPaint","No fig noted",1567,"Binned hull, mean-distance radius, 90th pct",1657,90,5.74,FALSE
+"6647","DendroPaint","No fig noted",1830,"Binned hull, mean-distance radius, 90th pct",1950,120,6.56,TRUE
+"5027","DendroPaint","Fig noted",1306,"Binned hull, mean-distance radius, 50th pct",1405,99,7.58,FALSE
+"3853","DendroPaint","Fig noted",1330,"Binned hull, mean-distance radius, 50th pct",1333,3,0.23,FALSE
+"1993","DendroPaint","Fig noted",2133,"Binned hull, mean-distance radius, 50th pct",2285,152,7.13,FALSE
+"7772","DendroPaint","No fig noted",1560,"Binned hull, mean-distance radius, 50th pct",1580,20,1.28,FALSE
+"4146","DendroPaint","No fig noted",1567,"Binned hull, mean-distance radius, 50th pct",1625,58,3.7,FALSE
+"6647","DendroPaint","No fig noted",1830,"Binned hull, mean-distance radius, 50th pct",1927,97,5.3,TRUE
 "5027","DendroPaint","Fig noted",1306,"ITSMe concave hull",1427.2,121.2,9.28,FALSE
 "3853","DendroPaint","Fig noted",1330,"ITSMe concave hull",1368.5,38.5,2.89,FALSE
 "1993","DendroPaint","Fig noted",2133,"ITSMe concave hull",2331.4,198.4,9.3,FALSE

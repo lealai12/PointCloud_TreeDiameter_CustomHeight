@@ -2,10 +2,12 @@
 # validate_field_accuracy.R  --  FIELD ACCURACY VALIDATION
 # ---------------------------------------------------------------------------
 # Feasibility study, core accuracy comparison. At each site with a field
-# reading (the Dendrometer bands and one paint-mark source), compare four diameter
+# reading (the Dendrometer bands and one paint-mark source), compare eight diameter
 # estimates
 #   - ForestScanner  (iPhone app, <Site>_ForestScanner_Diameter_mm)
 #   - Python hull    (dendro_tape.py convex-hull equiv diameter)
+#   - Binned hulls   (bin_fixed_angle.py, bin_mean_distance_radius.py), each at the
+#                    90th and the 50th percentile (P50 columns, added 2026-11-09)
 #   - R functional   (dab_itsme_concave_hull.R ITSMe concave-hull diameter)
 #   - Circle fit     (circle_fit.py least-squares circle on the polished slice)
 # against the field reading (Dendrometer_FieldDiameter or
@@ -28,8 +30,9 @@
 #   - Trees in EXCLUDE_SENSITIVITY (CONFIG) stay in the headline metrics, and
 #     a sensitivity row excluding them is also reported. Empty = no such row.
 #   - Flagged rings (MaxEdgeFrac >= FLAG_THRESHOLD) stay in the headline
-#     metrics, and a sensitivity row excluding them is also reported. The hull
+#     metrics, and a sensitivity row excluding them is also reported. The hull,
 #     ITSMe and the circle fit use the DendroTape flag, since they measure the same ring.
+#     Each binned hull uses its own flag.
 #     ForestScanner doesn't use the ring, so it is never dropped by the flag.
 #   - No row is dropped for having a large error. Every tree + site counts.
 #
@@ -129,7 +132,17 @@ acc_all <- bind_rows(lapply(names(FIELD_COL), function(s) {
       Python        = num(.data[[sprintf("%s_DendroTape_pythonScript_Diameter_mm", s)]]),
       Circle        = num(.data[[sprintf("%s_CircleFit_pythonScript_Diameter_mm", s)]]),
       R             = num(.data[[sprintf("%s_DabItsme_ConcaveHull_RScript_Diameter_mm", s)]]),
+      # the binned hulls, at the 90th and 50th percentile (added 2026-11-09, DJ)
+      bin_hull_FixedAngle            = num(.data[[sprintf("%s_BinFixedAngle_pythonScript_Diameter_mm", s)]]),
+      bin_hull_FixedAngleP50         = num(.data[[sprintf("%s_BinFixedAngleP50_pythonScript_Diameter_mm", s)]]),
+      bin_hull_MeanDistanceRadius    = num(.data[[sprintf("%s_BinMeanDistanceRadius_pythonScript_Diameter_mm", s)]]),
+      bin_hull_MeanDistanceRadiusP50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_pythonScript_Diameter_mm", s)]]),
       max_edge      = num(.data[[sprintf("%s_DendroTape_MaxEdgeFrac", s)]]),
+      # each binned hull has its own gap flag
+      edge_fa   = num(.data[[sprintf("%s_BinFixedAngle_MaxEdgeFrac", s)]]),
+      edge_fa50 = num(.data[[sprintf("%s_BinFixedAngleP50_MaxEdgeFrac", s)]]),
+      edge_md   = num(.data[[sprintf("%s_BinMeanDistanceRadius_MaxEdgeFrac", s)]]),
+      edge_md50 = num(.data[[sprintf("%s_BinMeanDistanceRadiusP50_MaxEdgeFrac", s)]]),
       reading       = num(.data[[FIELD_COL[[s]]]])
     )
 })) %>%
@@ -152,13 +165,21 @@ run_scope <- function(acc, scope, title) {
   EXCL_LABEL <- sens_label(acc$tree, acc$site)
 
   long <- acc %>%
-    pivot_longer(c(ForestScanner, Python, R, Circle), names_to = "method", values_to = "est") %>%
+    pivot_longer(c(ForestScanner, Python, bin_hull_FixedAngle, bin_hull_FixedAngleP50,
+                   bin_hull_MeanDistanceRadius, bin_hull_MeanDistanceRadiusP50, R, Circle),
+                 names_to = "method", values_to = "est") %>%
     filter(!is.na(est)) %>%
     mutate(err   = est - reading,
            pct   = 100 * err / reading,
-           # the ring flag drops the hull and ITSMe rows in the flagged-ring
-           # sensitivity row, never ForestScanner, which doesn't use the ring
-           flag_drop = ring_flagged & method != "ForestScanner",
+           # the flagged-ring sensitivity row drops each method by its own flag:
+           # the binned hulls by theirs, the hull, ITSMe and the circle fit by
+           # DendroTape's, never ForestScanner, which doesn't use the ring
+           edge = case_when(method == "bin_hull_FixedAngle"            ~ edge_fa,
+                            method == "bin_hull_FixedAngleP50"         ~ edge_fa50,
+                            method == "bin_hull_MeanDistanceRadius"    ~ edge_md,
+                            method == "bin_hull_MeanDistanceRadiusP50" ~ edge_md50,
+                            TRUE ~ max_edge),
+           flag_drop = method != "ForestScanner" & !is.na(edge) & edge >= FLAG_THRESHOLD,
            # x-axis label for the bar plots: tree tag, short site, and the
            # field reading in parentheses, e.g. "3031 Dendro (724)"
            tree_label = sprintf("%s %s (%.0f)", tree, SITE_SHORT[site], reading))
@@ -203,7 +224,7 @@ run_scope <- function(acc, scope, title) {
               toupper(title), nrow(acc)))
   cat("signed % error per method:\n\n")
   print(as.data.frame(pertree %>% select(tree, site, size, reading, flagged,
-          any_of(c("ForestScanner_tag", "Python_tag", "R_tag", "Circle_tag")))), row.names = FALSE)
+          ends_with("_tag"))), row.names = FALSE)
   cat("\n-- per-method metrics (mm; +bias = over-read) --\n")
   print(as.data.frame(summary_tbl %>%
           mutate(across(c(bias, MAE, RMSE), ~round(.x)), MAPE = round(MAPE, 1))),
@@ -270,7 +291,7 @@ run_scope <- function(acc, scope, title) {
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   ggsave(file.path(plotdir, sprintf("field_accuracy_%s_error.png", scope)),
-         p2, width = 8.5, height = 5.2, dpi = 130)
+         p2, width = 12, height = 5.6, dpi = 130)
 
   invisible(summary_tbl)
 }

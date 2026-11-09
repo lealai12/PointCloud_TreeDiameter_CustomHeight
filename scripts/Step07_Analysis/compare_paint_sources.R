@@ -49,6 +49,8 @@ Y_COL      <- c(ForestGeoPaint = "Y_value_ForestGeoPaint (Red)", DendroPaint = "
 METHODS    <- c(ForestScanner = "ForestScanner", Python_true_hull = "DendroTape_pythonScript",
                 bin_hull_FixedAngle = "BinFixedAngle_pythonScript",
                 bin_hull_MeanDistanceRadius = "BinMeanDistanceRadius_pythonScript",
+                bin_hull_FixedAngleP50 = "BinFixedAngleP50_pythonScript",              # 50th percentile (DJ, 2026-11-09)
+                bin_hull_MeanDistanceRadiusP50 = "BinMeanDistanceRadiusP50_pythonScript",
                 R = "DabItsme_ConcaveHull_RScript", Circle = "CircleFit_pythonScript")
 
 num <- function(x) suppressWarnings(as.numeric(x))
@@ -128,7 +130,8 @@ pd <- mae %>% mutate(set = factor(set, SETS), source = factor(source, SOURCES)) 
   mutate(cap      = 1.3 * max(MAE[method_label != "ForestScanner (in-app)"]),
          cut      = MAE > cap,
          MAE_plot = pmin(MAE, cap),
-         bar_text = if_else(cut, sprintf("%.0f mm, n=%d", MAE, n), sprintf("n=%d", n))) %>%
+         # two lines on a cut bar, so the red and blue labels don't overlap
+         bar_text = if_else(cut, sprintf("%.0f mm\nn=%d", MAE, n), sprintf("n=%d", n))) %>%
   ungroup()
 p <- ggplot(pd, aes(method_label, MAE_plot, fill = source)) +
   geom_col(position = position_dodge(0.8), width = 0.7) +
