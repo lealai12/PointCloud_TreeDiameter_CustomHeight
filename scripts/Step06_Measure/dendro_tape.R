@@ -84,7 +84,7 @@ get_flag <- function(name, default = NULL) {   # value following --name, else de
 has_flag <- function(name) name %in% args      # boolean flags, e.g. --from-sheet
 
 flag_names <- c("--tree-id", "--up-axis", "--height", "--thickness",
-                "--min-coverage", "--out", "--viz-dir")
+                "--min-coverage", "--out", "--viz-dir", "--site", "--output-col", "--flag-col")
 value_idx  <- match(flag_names, args) + 1                   # slots holding flag values
 positional <- args[!startsWith(args, "--") & !(seq_along(args) %in% value_idx)]
 path       <- if (length(positional)) positional[1] else NA
@@ -104,6 +104,12 @@ thickness <- as.numeric(get_flag("--thickness", 0.06))
 min_cov   <- as.numeric(get_flag("--min-coverage", 270))
 out       <- get_flag("--out", NULL)
 viz_dir   <- get_flag("--viz-dir", NA)
+
+# Sheet-mode overrides, used by run_measure.R. Each one replaces the CONFIG
+# value of the same name for this run only. Leave them out to use CONFIG.
+SITE_LABEL <- get_flag("--site", SITE_LABEL)
+OUTPUT_COL <- get_flag("--output-col", OUTPUT_COL)
+FLAG_COL   <- get_flag("--flag-col", FLAG_COL)
 
 MAX_EDGE_FRAC <- 0.5
 

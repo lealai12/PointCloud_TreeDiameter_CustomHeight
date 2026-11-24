@@ -80,7 +80,7 @@ has_flag <- function(name) name %in% args      # boolean flags, e.g. --from-shee
 
 # positional path = first non-flag token that isn't itself a flag's value
 flag_names <- c("--tree-id", "--height-z", "--thickness", "--concavity",
-                "--how", "--out", "--up-axis")
+                "--how", "--out", "--up-axis", "--site", "--output-col", "--height-col")
 value_idx  <- match(flag_names, args) + 1                   # slots holding flag values
 positional <- args[!startsWith(args, "--") & !(seq_along(args) %in% value_idx)]
 path       <- if (length(positional)) positional[1] else NA
@@ -100,6 +100,12 @@ how       <- get_flag("--how", "median")                    # ITSMe radius summa
 out       <- get_flag("--out", NULL)
 up_axis   <- get_flag("--up-axis", "z")   # default z (ITSMe convention); ForestScanner
                                           # clouds are Y-up -> pass --up-axis y explicitly
+
+# Sheet-mode overrides, used by run_measure.R. Each one replaces the CONFIG
+# value of the same name for this run only. Leave them out to use CONFIG.
+SITE_LABEL <- get_flag("--site", SITE_LABEL)
+OUTPUT_COL <- get_flag("--output-col", OUTPUT_COL)
+HEIGHT_COL <- get_flag("--height-col", HEIGHT_COL)
 
 if (!from_sheet && is.na(height_z)) {
   stop("--height-z <Z> is required (the picked point's Z, in metres) unless --from-sheet is given.")

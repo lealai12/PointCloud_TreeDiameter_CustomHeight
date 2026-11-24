@@ -137,7 +137,7 @@ has_flag <- function(name) name %in% args      # boolean flags, e.g. --from-shee
 
 flag_names <- c("--tree-id", "--up-axis", "--height", "--thickness",
                 "--bin-width-deg", "--min-coverage", "--out", "--poly-dir",
-                "--percentile", "--min-points")
+                "--percentile", "--min-points", "--site", "--output-col", "--flag-col")
 value_idx  <- match(flag_names, args) + 1                   # slots holding flag values
 positional <- args[!startsWith(args, "--") & !(seq_along(args) %in% value_idx)]
 path       <- if (length(positional)) positional[1] else NA
@@ -160,6 +160,12 @@ percentile <- as.numeric(get_flag("--percentile", PERCENTILE))   # 50 = median
 min_points <- as.integer(get_flag("--min-points", MIN_POINTS_PER_BIN))
 out        <- get_flag("--out", NULL)
 poly_dir   <- get_flag("--poly-dir", NULL)   # if set, write polygon/hull PLYs here (see below)
+
+# Sheet-mode overrides, used by run_measure.R. Each one replaces the CONFIG
+# value of the same name for this run only. Leave them out to use CONFIG.
+SITE_LABEL <- get_flag("--site", SITE_LABEL)
+OUTPUT_COL <- get_flag("--output-col", OUTPUT_COL)
+FLAG_COL   <- get_flag("--flag-col", FLAG_COL)
 
 # ------------------------------------------------------------------ visualization
 # If poly_dir is set, write <tree_id>_bin_polygon_fixed_angle_r.ply (cyan, the

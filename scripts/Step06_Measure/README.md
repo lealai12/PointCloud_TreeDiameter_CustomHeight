@@ -1,6 +1,6 @@
 # Step 06 — Measure
 
-Tools: Python and R, run independently. Ten scripts in this folder, five methods.
+Tools: Python and R, run independently. Ten measure scripts in this folder, five methods, plus run_measure.py and run_measure.R to run them.
 
 Note: Input is the polished ring from Step 5, Working_Steps\5_PolishedSlices\<tag>__<Site>.ply. Output CSVs and pictures go to Working_Steps\6_Measure\.
 
@@ -12,6 +12,21 @@ The methods, and the sheet column each one writes:
 - circle_fit.py / .R: least-squares (Kasa) circle fit. The circle passes through the middle of the bark's bumps rather than wrapping them, so on fluted trunks it tends to read below the hulls. <Site>_CircleFit_{pythonScript,RScript}_Diameter_mm. The circle RMS and coverage go to the CSV only.
 
 The binned scripts take one percentile of the radius in each wedge. Both the 50th and the 90th are reported. The 50th, the median, is the default and writes the P50 columns, <Site>_BinFixedAngleP50_* and <Site>_BinMeanDistanceRadiusP50_*. For the 90th, set PERCENTILE to 90 and take P50 out of OUTPUT_COL and FLAG_COL. That writes the columns without P50. Run the binned scripts once at each percentile for every site. PERCENTILE and MIN_POINTS_PER_BIN are set in CONFIG.
+
+The easy way: run_measure.py and run_measure.R run the other scripts for you. At the top, list the methods, sites and percentiles you want, then run it from the repo root:
+
+    python  scripts/Step06_Measure/run_measure.py
+    Rscript scripts/Step06_Measure/run_measure.R
+
+run_measure.py runs the Python scripts and run_measure.R runs the R scripts. They pass each script its site and sheet columns on the command line, so no script is changed. They check every sheet column exists before running anything. Set DRY_RUN to TRUE to see the commands without running them. At the end they print what each job measured, skipped and flagged. A skip is usually a tree with no slice at that site.
+
+The CSVs are added to, not replaced, so running the same job twice gives each row twice.
+
+To run one script by hand instead, give it --site and the columns, for example:
+
+    python scripts/Step06_Measure/circle_fit.py --from-sheet --up-axis y --site TopFlag --output-col TopFlag_CircleFit_pythonScript_Diameter_mm
+
+Or follow the steps below, which edit each script's CONFIG.
 
 Steps:
 1. In each script's CONFIG, set SITE_LABEL and the site prefix on OUTPUT_COL and FLAG_COL for the site you are running (circle_fit has no FLAG_COL, since analysis uses the DendroTape flag for it). For dab_itsme_concave_hull.R and .py, also set HEIGHT_COL to that site's Y_value column.

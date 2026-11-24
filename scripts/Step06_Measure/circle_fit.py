@@ -162,7 +162,14 @@ def main():
     ap.add_argument("--slice-thickness", type=float, default=0.06,
                     help="Band thickness for --slice-height (m, default 0.06).")
     ap.add_argument("--out", default=None, help="CSV to write/append results to.")
+    # Sheet-mode overrides, used by run_measure.py. Each one replaces the CONFIG
+    # value of the same name for this run only. Leave them out to use CONFIG.
+    ap.add_argument("--site", default=None, help="Replaces SITE_LABEL.")
+    ap.add_argument("--output-col", default=None, help="Replaces OUTPUT_COL.")
     args = ap.parse_args()
+    global SITE_LABEL, OUTPUT_COL
+    SITE_LABEL = args.site or SITE_LABEL
+    OUTPUT_COL = args.output_col or OUTPUT_COL
 
     rows = []
     updates = []   # (sheet_row, value_mm) pairs -- only populated in --from-sheet mode

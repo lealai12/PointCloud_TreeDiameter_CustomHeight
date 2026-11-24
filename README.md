@@ -398,6 +398,7 @@ Every script in the repo, grouped by where it sits in the chain. Paths are relat
 | `Step06_Measure/bin_mean_distance_radius.py` / `.R` | both | Convex hull of a percentile-binned polygon, wedge width set by a fixed **arc length** (default ~10 mm) | One of two offered variants |
 | `Step06_Measure/bin_fixed_angle.py` / `.R` | both | Same method, wedge width set by a fixed **angle** (default 2°) | The other variant — **not** a superseded version |
 | `Step06_Measure/circle_fit.py` / `.R` | both | Least-squares (Kåsa) circle fit | The circle passes through the middle of the bark's bumps, so on fluted trunks it tends to read below the hulls. RMS and coverage go to the CSV |
+| `Step06_Measure/run_measure.py` / `.R` | both | Runs the measure scripts for you: list the methods, sites and percentiles at the top | The `.py` runs the Python scripts and the `.R` runs the R scripts. It passes each script `--site` and its sheet columns, checks the columns exist first, and has a `DRY_RUN` switch |
 
 ### Step 6 — batch plumbing
 

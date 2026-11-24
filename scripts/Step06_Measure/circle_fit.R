@@ -62,7 +62,7 @@ get_flag <- function(name, default = NULL) {   # value following --name, else de
 }
 has_flag <- function(name) name %in% args      # boolean flags, e.g. --from-sheet
 
-flag_names <- c("--tree-id", "--up-axis", "--height", "--thickness", "--out")
+flag_names <- c("--tree-id", "--up-axis", "--height", "--thickness", "--out", "--site", "--output-col")
 value_idx  <- match(flag_names, args) + 1                   # slots holding flag values
 positional <- args[!startsWith(args, "--") & !(seq_along(args) %in% value_idx)]
 path       <- if (length(positional)) positional[1] else NA
@@ -80,6 +80,11 @@ up_axis   <- get_flag("--up-axis",   "y")                   # ForestScanner clou
 height    <- as.numeric(get_flag("--height", NA))          # picked coord along up-axis (m)
 thickness <- as.numeric(get_flag("--thickness", 0.06))
 out       <- get_flag("--out", NULL)
+
+# Sheet-mode overrides, used by run_measure.R. Each one replaces the CONFIG
+# value of the same name for this run only. Leave them out to use CONFIG.
+SITE_LABEL <- get_flag("--site", SITE_LABEL)
+OUTPUT_COL <- get_flag("--output-col", OUTPUT_COL)
 
 # ------------------------------------------------------------------ the fit
 # Algebraic (Kasa) least-squares circle: solve x^2 + y^2 = D x + E y + F by QR;

@@ -342,7 +342,16 @@ def main():
     ap.add_argument("--viz-dir", default=None,
                     help="Also write a picture bundle per slice under this folder "
                          "(fit PNG, hull/circle/gap-edge overlay PLYs, slice cloud, measure.txt).")
+    # Sheet-mode overrides, used by run_measure.py. Each one replaces the CONFIG
+    # value of the same name for this run only. Leave them out to use CONFIG.
+    ap.add_argument("--site", default=None, help="Replaces SITE_LABEL.")
+    ap.add_argument("--output-col", default=None, help="Replaces OUTPUT_COL.")
+    ap.add_argument("--flag-col", default=None, help="Replaces FLAG_COL.")
     args = ap.parse_args()
+    global SITE_LABEL, OUTPUT_COL, FLAG_COL
+    SITE_LABEL = args.site or SITE_LABEL
+    OUTPUT_COL = args.output_col or OUTPUT_COL
+    FLAG_COL = args.flag_col or FLAG_COL
 
     rows = []
     updates = []   # (sheet_row, value_mm) pairs -- only populated in --from-sheet mode

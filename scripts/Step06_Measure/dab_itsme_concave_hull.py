@@ -480,7 +480,16 @@ def main() -> None:
     ap.add_argument("--up-axis", choices=["x", "y", "z"], default="z",
                     help="Trunk axis. Default z (ITSMe's convention); ForestScanner clouds are Y-up -> pass y.")
     ap.add_argument("--out", default=None, help="CSV to write/append results to.")
+    # Sheet-mode overrides, used by run_measure.py. Each one replaces the CONFIG
+    # value of the same name for this run only. Leave them out to use CONFIG.
+    ap.add_argument("--site", default=None, help="Replaces SITE_LABEL.")
+    ap.add_argument("--output-col", default=None, help="Replaces OUTPUT_COL.")
+    ap.add_argument("--height-col", default=None, help="Replaces HEIGHT_COL.")
     args = ap.parse_args()
+    global SITE_LABEL, OUTPUT_COL, HEIGHT_COL
+    SITE_LABEL = args.site or SITE_LABEL
+    OUTPUT_COL = args.output_col or OUTPUT_COL
+    HEIGHT_COL = args.height_col or HEIGHT_COL
 
     rows = []
     if args.from_sheet:
